@@ -45,6 +45,65 @@
     mix-blend-mode:multiply;
   }
 
+  /* ---------- COMING SOON ---------- */
+  #coming-soon{
+    position:fixed; inset:0; z-index:5000;
+    display:none; align-items:center; justify-content:center;
+    overflow-y:auto; padding:2rem 0;
+  }
+  #coming-soon.show{ display:flex; }
+  #coming-soon-bg{
+    position:absolute; inset:0; background-size:cover; background-position:center;
+    background-color:var(--black);
+  }
+  #coming-soon-scrim{ position:absolute; inset:0; background:rgba(10,10,10,0.4); }
+  #coming-soon-content{
+    position:relative; z-index:1; text-align:center; color:var(--white);
+    padding:2rem; max-width:560px; width:100%; margin:auto;
+  }
+  #coming-soon-logo{
+    width:130px; height:130px; border-radius:50%; object-fit:cover;
+    border:3px solid var(--white); margin:0 auto 2rem; display:block;
+  }
+  #coming-soon-headline{
+    font-size:clamp(2.1rem, 7vw, 3.5rem); text-transform:uppercase; letter-spacing:0.02em;
+    line-height:1.05; margin-bottom:0.75rem;
+  }
+  #coming-soon-subtext{
+    text-transform:uppercase; letter-spacing:0.14em; font-size:0.85rem; color:var(--off-white);
+    margin-bottom:2rem;
+  }
+  #coming-soon-countdown{ display:flex; justify-content:center; gap:1.25rem; margin-bottom:2rem; flex-wrap:wrap; }
+  .countdown-unit{ display:flex; flex-direction:column; align-items:center; min-width:56px; }
+  .countdown-unit span{ font-size:2rem; font-weight:bold; line-height:1; font-variant-numeric:tabular-nums; }
+  .countdown-unit small{ text-transform:uppercase; letter-spacing:0.1em; font-size:0.62rem; color:var(--off-white); margin-top:0.4rem; }
+  #coming-soon-offer{ font-size:0.9rem; color:var(--off-white); margin-bottom:1.25rem; max-width:420px; margin-left:auto; margin-right:auto; }
+  #coming-soon-signup-form{ display:flex; margin-bottom:0.75rem; }
+  #coming-soon-phone{
+    flex:1; min-width:0; border:3px solid var(--white); background:var(--white); padding:1rem;
+    font-size:0.95rem; font-family:inherit;
+  }
+  #coming-soon-signup-form button{
+    border:3px solid var(--white); border-left:none; background:var(--black); color:var(--white);
+    padding:1rem 1.25rem; text-transform:uppercase; letter-spacing:0.1em; font-size:0.8rem; flex-shrink:0;
+  }
+  #coming-soon-signup-form button:hover{ background:var(--white); color:var(--black); }
+  #coming-soon-signup-message{ font-size:0.82rem; color:var(--off-white); margin-bottom:1.25rem; min-height:1.2em; }
+  #coming-soon-password-link{
+    text-transform:uppercase; letter-spacing:0.1em; font-size:0.72rem; color:var(--off-white);
+    text-decoration:underline; background:none; border:none;
+  }
+  #coming-soon-password-row{ display:none; margin-top:1rem; }
+  #coming-soon-password-row.show{ display:flex; }
+  #coming-soon-password-input{ flex:1; min-width:0; border:3px solid var(--white); background:var(--white); padding:0.85rem; font-size:0.9rem; font-family:inherit; }
+  #coming-soon-password-submit{ border:3px solid var(--white); border-left:none; background:var(--black); color:var(--white); padding:0.85rem 1.25rem; text-transform:uppercase; letter-spacing:0.1em; font-size:0.78rem; flex-shrink:0; }
+  @media (max-width:480px){
+    #coming-soon-content{ padding:1.5rem; }
+    #coming-soon-logo{ width:100px; height:100px; margin-bottom:1.5rem; }
+    .countdown-unit{ min-width:46px; }
+    .countdown-unit span{ font-size:1.6rem; }
+  }
+
   /* ---------- HEADER (banner + nav) ---------- */
   #site-header{
     position:fixed; top:0; left:0; width:100%; z-index:1000;
@@ -406,6 +465,33 @@
 
 <div id="grain"></div>
 
+<div id="coming-soon">
+  <div id="coming-soon-bg"></div>
+  <div id="coming-soon-scrim"></div>
+  <div id="coming-soon-content">
+    <img id="coming-soon-logo" src="logo.jpg" alt="" onerror="this.style.display='none'">
+    <h1 id="coming-soon-headline">OPENING SOON</h1>
+    <p id="coming-soon-subtext">OUR GREATEST RESTOCK YET</p>
+    <div id="coming-soon-countdown">
+      <div class="countdown-unit"><span id="cd-days">00</span><small>Days</small></div>
+      <div class="countdown-unit"><span id="cd-hours">00</span><small>Hours</small></div>
+      <div class="countdown-unit"><span id="cd-mins">00</span><small>Min</small></div>
+      <div class="countdown-unit"><span id="cd-secs">00</span><small>Sec</small></div>
+    </div>
+    <p id="coming-soon-offer"></p>
+    <form id="coming-soon-signup-form">
+      <input type="tel" id="coming-soon-phone" placeholder="Phone Number" required>
+      <button type="submit">Sign Up</button>
+    </form>
+    <p id="coming-soon-signup-message"></p>
+    <button id="coming-soon-password-link">Enter using password</button>
+    <div id="coming-soon-password-row">
+      <input type="password" id="coming-soon-password-input" placeholder="Password">
+      <button id="coming-soon-password-submit">Enter</button>
+    </div>
+  </div>
+</div>
+
 <header id="site-header">
   <div id="announcement">
     <div class="marquee-track">
@@ -590,6 +676,13 @@ async function sbDelete(path){
 
 /* ================= DEFAULT SETTINGS (fallback if Supabase not reachable / empty) ================= */
 const DEFAULT_SETTINGS = {
+  siteOpen: true,
+  reopenDateTime: '',
+  previewPassword: '',
+  closedHeadline: 'OPENING SOON',
+  closedSubtext: 'OUR GREATEST RESTOCK YET',
+  signupOfferText: 'Sign up with your phone number for 10% off your first order.',
+  closedBgImage: '',
   brandName: 'High Class Kicks',
   seoTitle: 'High Class Kicks — Vintage, Hypebeast & Designer',
   seoDescription: 'Curated vintage, hypebeast, and designer shoes & clothing. Based in California. Shop the drop.',
@@ -721,6 +814,7 @@ function escapeHtml(str){
 
 /* ================= RENDER: HEADER / SETTINGS-DRIVEN CONTENT ================= */
 function applySettings(){
+  renderComingSoon();
   document.title = SETTINGS.seoTitle || 'High Class Kicks';
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc) metaDesc.setAttribute('content', SETTINGS.seoDescription || '');
@@ -776,6 +870,84 @@ function updateHeaderHeight(){
   const header = document.getElementById('site-header');
   document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
 }
+
+/* ================= COMING SOON ================= */
+let comingSoonInterval = null;
+function hasPreviewAccess(){
+  return sessionStorage.getItem('hck_preview_access') === 'true';
+}
+function renderComingSoon(){
+  const overlay = document.getElementById('coming-soon');
+  const shouldShow = SETTINGS.siteOpen === false && !hasPreviewAccess();
+
+  if(!shouldShow){
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+    if(comingSoonInterval) clearInterval(comingSoonInterval);
+    return;
+  }
+
+  document.getElementById('coming-soon-headline').textContent = SETTINGS.closedHeadline || 'OPENING SOON';
+  document.getElementById('coming-soon-subtext').textContent = SETTINGS.closedSubtext || '';
+  document.getElementById('coming-soon-offer').textContent = SETTINGS.signupOfferText || '';
+  const bg = document.getElementById('coming-soon-bg');
+  bg.style.backgroundImage = SETTINGS.closedBgImage ? `url("${SETTINGS.closedBgImage}")` : 'none';
+
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  const target = SETTINGS.reopenDateTime ? new Date(SETTINGS.reopenDateTime).getTime() : null;
+  function tick(){
+    if(!target){
+      ['cd-days','cd-hours','cd-mins','cd-secs'].forEach(id => document.getElementById(id).textContent = '00');
+      return;
+    }
+    const diff = Math.max(0, target - Date.now());
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+    document.getElementById('cd-hours').textContent = String(hours).padStart(2, '0');
+    document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
+    document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
+  }
+  tick();
+  if(comingSoonInterval) clearInterval(comingSoonInterval);
+  comingSoonInterval = setInterval(tick, 1000);
+}
+
+document.getElementById('coming-soon-signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('coming-soon-phone');
+  const msg = document.getElementById('coming-soon-signup-message');
+  const digits = input.value.replace(/\D/g, '');
+  if(digits.length < 7){
+    msg.textContent = 'Please enter a valid phone number.';
+    return;
+  }
+  try{
+    await sbPost('signups', { phone: input.value.trim() });
+    msg.textContent = "You're in! We'll text you when we drop.";
+    input.value = '';
+  }catch(err){
+    msg.textContent = 'Something went wrong — please try again.';
+  }
+});
+
+document.getElementById('coming-soon-password-link').addEventListener('click', () => {
+  document.getElementById('coming-soon-password-row').classList.toggle('show');
+});
+document.getElementById('coming-soon-password-submit').addEventListener('click', () => {
+  const val = document.getElementById('coming-soon-password-input').value;
+  if(val && val === SETTINGS.previewPassword){
+    sessionStorage.setItem('hck_preview_access', 'true');
+    renderComingSoon();
+  }else{
+    document.getElementById('coming-soon-password-input').value = '';
+    document.getElementById('coming-soon-password-input').placeholder = 'Incorrect password';
+  }
+});
 
 /* ================= RENDER: PRODUCTS ================= */
 function renderProducts(){

@@ -26,11 +26,18 @@ create table visits (
   created_at timestamptz default now()
 );
 
+create table signups (
+  id bigint generated always as identity primary key,
+  phone text not null,
+  created_at timestamptz default now()
+);
+
 -- ============ ROW LEVEL SECURITY ============
 
 alter table products enable row level security;
 alter table settings enable row level security;
 alter table visits enable row level security;
+alter table signups enable row level security;
 
 -- products: public read, logged-in admin write
 create policy "public read products" on products for select using (true);
@@ -46,3 +53,7 @@ create policy "admin update settings" on settings for update using (auth.role() 
 -- visits: anyone can log a visit, only the admin can read the stats
 create policy "public insert visits" on visits for insert with check (true);
 create policy "admin read visits" on visits for select using (auth.role() = 'authenticated');
+
+-- signups: anyone can submit their phone number, only the admin can read the list
+create policy "public insert signups" on signups for insert with check (true);
+create policy "admin read signups" on signups for select using (auth.role() = 'authenticated');

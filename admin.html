@@ -317,6 +317,12 @@
         <h3>Top Products</h3>
         <div id="top-products"></div>
       </div>
+
+      <div class="panel">
+        <h3>Phone Signups <span id="signups-count" class="label"></span></h3>
+        <p class="footer-note" style="margin-top:0;">Collected from the "opening soon" page while the store is closed.</p>
+        <div id="phone-signups"></div>
+      </div>
     </section>
 
     <!-- PRODUCTS -->
@@ -359,6 +365,30 @@
       <div class="view-header">
         <h2>Settings</h2>
         <button class="btn btn-dark" id="save-settings-btn">Save All Settings</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Store Status</h3>
+        <div class="toggle-row"><input type="checkbox" id="s-siteOpen"><label for="s-siteOpen">Site is open (uncheck to show the "opening soon" page to visitors)</label></div>
+        <p class="footer-note" style="margin-top:0;">While closed, visitors see a countdown + phone signup page instead of the shop. Use the password below to preview the real site yourself while it's closed.</p>
+        <div class="field-row">
+          <div class="field"><label>Reopens At</label><input type="datetime-local" id="s-reopenDateTime"></div>
+          <div class="field"><label>Preview Bypass Password</label><input type="text" id="s-previewPassword" placeholder="e.g. sneakpeek"></div>
+        </div>
+        <div class="field"><label>Closed Headline</label><input type="text" id="s-closedHeadline"></div>
+        <div class="field"><label>Closed Subtext</label><input type="text" id="s-closedSubtext"></div>
+        <div class="field"><label>Signup Offer Text</label><input type="text" id="s-signupOfferText"></div>
+        <div class="photo-input-row">
+          <img id="closed-bg-preview" src="" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27130%27%3E%3Crect width=%27100%25%27 height=%27100%25%27 fill=%27%23e8e4db%27/%3E%3C/svg%3E'">
+          <div style="flex:1;">
+            <div class="field"><label>Closed Page Background — Paste Image URL</label><input type="text" id="s-closedBgUrl" placeholder="https://..."></div>
+            <div class="field">
+              <label>Or Upload Photo</label>
+              <input type="file" id="s-closedBgFile" accept="image/*">
+              <span id="closed-bg-upload-status" class="footer-note" style="display:none; margin-top:0.5rem; margin-bottom:0;"></span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -576,6 +606,13 @@ async function uploadProductImage(blob){
 
 /* ================= DEFAULTS ================= */
 const DEFAULT_SETTINGS = {
+  siteOpen: true,
+  reopenDateTime: '',
+  previewPassword: '',
+  closedHeadline: 'OPENING SOON',
+  closedSubtext: 'OUR GREATEST RESTOCK YET',
+  signupOfferText: 'Sign up with your phone number for 10% off your first order.',
+  closedBgImage: '',
   brandName: 'High Class Kicks',
   seoTitle: 'High Class Kicks — Vintage, Hypebeast & Designer',
   seoDescription: 'Curated vintage, hypebeast, and designer shoes & clothing. Based in California. Shop the drop.',
@@ -811,6 +848,22 @@ async function renderDashboard(){
     console.warn('Visit stats load failed.', e);
     ['vis-today','vis-month','vis-year','vis-all'].forEach(id => document.getElementById(id).textContent = '—');
   }
+
+  try{
+    const signups = await sbGet('signups?select=phone,created_at&order=created_at.desc');
+    document.getElementById('signups-count').textContent = `(${signups.length})`;
+    const el = document.getElementById('phone-signups');
+    if(signups.length === 0){
+      el.innerHTML = '<div class="list-empty">No signups yet</div>';
+    }else{
+      el.innerHTML = signups.slice(0, 20).map(s => `
+        <div class="list-row"><span>${escapeHtml(s.phone)}</span><span>${new Date(s.created_at).toLocaleDateString()}</span></div>
+      `).join('');
+    }
+  }catch(e){
+    console.warn('Signups load failed.', e);
+    document.getElementById('phone-signups').innerHTML = '<div class="list-empty">Could not load signups</div>';
+  }
 }
 
 function renderRevenueChart(log){
@@ -981,6 +1034,28 @@ document.getElementById('product-modal-overlay').addEventListener('click', (e) =
 document.getElementById('p-image-url').addEventListener('input', (e) => {
   document.getElementById('photo-preview').src = e.target.value;
 });
+document.getElementById('s-closedBgUrl').addEventListener('input', (e) => {
+  document.getElementById('closed-bg-preview').src = e.target.value;
+});
+document.getElementById('s-closedBgFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('closed-bg-upload-status');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Compressing & uploading...';
+  try{
+    const blob = await compressImage(file, 2000, 0.85);
+    const url = await uploadProductImage(blob);
+    document.getElementById('s-closedBgUrl').value = url;
+    document.getElementById('closed-bg-preview').src = url;
+    statusEl.textContent = 'Uploaded.';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+  }catch(err){
+    statusEl.textContent = err.message;
+  }finally{
+    document.getElementById('s-closedBgFile').value = '';
+  }
+});
 document.getElementById('p-image-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1053,6 +1128,14 @@ document.getElementById('save-stripe-btn').addEventListener('click', () => {
 
 /* ================= SETTINGS ================= */
 function populateSettingsForm(){
+  document.getElementById('s-siteOpen').checked = SETTINGS.siteOpen !== false;
+  document.getElementById('s-reopenDateTime').value = SETTINGS.reopenDateTime || '';
+  document.getElementById('s-previewPassword').value = SETTINGS.previewPassword || '';
+  document.getElementById('s-closedHeadline').value = SETTINGS.closedHeadline || '';
+  document.getElementById('s-closedSubtext').value = SETTINGS.closedSubtext || '';
+  document.getElementById('s-signupOfferText').value = SETTINGS.signupOfferText || '';
+  document.getElementById('s-closedBgUrl').value = SETTINGS.closedBgImage || '';
+  document.getElementById('closed-bg-preview').src = SETTINGS.closedBgImage || '';
   document.getElementById('s-brandName').value = SETTINGS.brandName || '';
   document.getElementById('s-contactEmail').value = SETTINGS.contactEmail || '';
   document.getElementById('s-instagramHandle').value = SETTINGS.instagramHandle || '';
@@ -1069,6 +1152,13 @@ function populateSettingsForm(){
 }
 
 document.getElementById('save-settings-btn').addEventListener('click', async (e) => {
+  SETTINGS.siteOpen = document.getElementById('s-siteOpen').checked;
+  SETTINGS.reopenDateTime = document.getElementById('s-reopenDateTime').value;
+  SETTINGS.previewPassword = document.getElementById('s-previewPassword').value.trim();
+  SETTINGS.closedHeadline = document.getElementById('s-closedHeadline').value.trim();
+  SETTINGS.closedSubtext = document.getElementById('s-closedSubtext').value.trim();
+  SETTINGS.signupOfferText = document.getElementById('s-signupOfferText').value.trim();
+  SETTINGS.closedBgImage = document.getElementById('s-closedBgUrl').value.trim();
   SETTINGS.brandName = document.getElementById('s-brandName').value.trim();
   SETTINGS.contactEmail = document.getElementById('s-contactEmail').value.trim();
   SETTINGS.instagramHandle = document.getElementById('s-instagramHandle').value.trim();
