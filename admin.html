@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>High Class Kicks — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0a0a0a;
+    --white:#f4f1eb;
+    --off-white:#ede9e1;
+    --paper:#e8e4db;
+    --muted:#888880;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--white); color:var(--black);
+    font-family:'Tenor Sans', sans-serif; line-height:1.5;
+    position:relative;
+  }
+  a{color:inherit;}
+  button{ font-family:inherit; cursor:pointer; }
+  input, select, textarea{ font-family:inherit; }
+  #grain{
+    position:fixed; inset:0; z-index:9999; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity:0.05; mix-blend-mode:multiply;
+  }
+  .label{ text-transform:uppercase; letter-spacing:0.14em; font-size:0.72rem; color:var(--muted); }
+  h1,h2,h3{ text-transform:uppercase; letter-spacing:0.06em; font-weight:400; }
+  .btn{
+    border:3px solid var(--black); background:var(--white); color:var(--black);
+    padding:0.7rem 1.4rem; text-transform:uppercase; letter-spacing:0.12em; font-size:0.78rem;
+  }
+  .btn:hover{ background:var(--black); color:var(--white); }
+  .btn-dark{ background:var(--black); color:var(--white); }
+  .btn-dark:hover{ background:var(--off-white); color:var(--black); }
+  .btn-danger{ border-color:var(--black); color:#a33; }
+  .btn-danger:hover{ background:#a33; color:var(--white); border-color:#a33; }
+  .field{ margin-bottom:1.25rem; }
+  .field label{ display:block; margin-bottom:0.4rem; }
+  .field input[type="text"], .field input[type="number"], .field input[type="email"],
+  .field input[type="password"], .field input[type="url"], .field select, .field textarea{
+    width:100%; border:3px solid var(--black); background:var(--white); padding:0.7rem 0.8rem; font-size:0.9rem;
+  }
+  .field textarea{ resize:vertical; min-height:90px; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+  .toggle-row{ display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; }
+  .toggle-row input{ width:18px; height:18px; }
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;
+  }
+  #login-box{
+    border:3px solid var(--black); background:var(--off-white);
+    padding:3rem; width:100%; max-width:380px; text-align:center;
+  }
+  #login-box h1{ font-size:1.4rem; margin-bottom:0.5rem; }
+  #login-box p{ color:var(--muted); font-size:0.85rem; margin-bottom:2rem; }
+  #login-box input{
+    width:100%; border:3px solid var(--black); padding:0.8rem; margin-bottom:1rem; font-size:0.95rem; text-align:center;
+  }
+  #login-error{ color:#a33; font-size:0.8rem; margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.08em; display:none; }
+
+  /* ---------- APP SHELL ---------- */
+  #app{ display:none; min-height:100vh; }
+  #sidebar{
+    width:230px; border-right:3px solid var(--black); flex-shrink:0;
+    position:fixed; top:0; left:0; height:100vh; display:flex; flex-direction:column;
+    background:var(--white); z-index:10;
+  }
+  #sidebar-brand{ padding:1.75rem 1.5rem; border-bottom:3px solid var(--black); }
+  #sidebar-brand div{ text-transform:uppercase; letter-spacing:0.1em; font-size:0.95rem; }
+  #sidebar-brand span{ color:var(--muted); font-size:0.7rem; letter-spacing:0.1em; }
+  #sidebar-nav{ flex:1; padding:1.5rem 0; }
+  .sidebar-link{
+    display:block; width:100%; text-align:left; padding:0.9rem 1.5rem;
+    text-transform:uppercase; letter-spacing:0.1em; font-size:0.82rem; border:none; background:none;
+    border-left:3px solid transparent;
+  }
+  .sidebar-link:hover{ background:var(--off-white); }
+  .sidebar-link.active{ border-left:3px solid var(--black); background:var(--off-white); font-weight:bold; }
+  #sidebar-footer{ padding:1.5rem; border-top:3px solid var(--black); }
+  #main{ margin-left:230px; flex:1; padding:2.5rem 3rem; max-width:1200px; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+  .view-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .view-header h2{ font-size:1.6rem; }
+
+  /* ---------- DASHBOARD ---------- */
+  .metrics-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); border-left:3px solid var(--black); border-top:3px solid var(--black); margin-bottom:2.5rem; }
+  .metric-card{ border-right:3px solid var(--black); border-bottom:3px solid var(--black); padding:1.5rem; background:var(--off-white); }
+  .metric-value{ font-size:2rem; margin-top:0.5rem; }
+  .panel{ border:3px solid var(--black); padding:1.75rem; margin-bottom:2.5rem; background:var(--white); }
+  .panel h3{ font-size:1rem; margin-bottom:1.25rem; }
+  #revenue-chart{ display:flex; align-items:flex-end; gap:0.75rem; height:180px; border-bottom:3px solid var(--black); padding-bottom:0; }
+  .chart-bar-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+  .chart-bar{ width:100%; background:var(--black); }
+  .chart-label{ margin-top:0.5rem; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); text-align:center; }
+  .list-row{ display:flex; justify-content:space-between; padding:0.9rem 0; border-bottom:1px solid var(--paper); font-size:0.88rem; }
+  .list-row:last-child{ border-bottom:none; }
+  .list-empty{ color:var(--muted); font-size:0.85rem; padding:1rem 0; text-align:center; text-transform:uppercase; letter-spacing:0.08em; }
+  .log-sale-form{ display:flex; gap:0.75rem; margin-top:1.25rem; flex-wrap:wrap; }
+  .log-sale-form select, .log-sale-form input{ border:3px solid var(--black); padding:0.6rem; font-size:0.82rem; }
+  .log-sale-form select{ flex:2; min-width:160px; }
+  .log-sale-form input[type="number"]{ flex:1; min-width:100px; }
+
+  /* ---------- PRODUCTS ---------- */
+  #products-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:1.5rem; }
+  .admin-product-card{ border:3px solid var(--black); background:var(--white); }
+  .admin-product-media{ aspect-ratio:3/4; background:var(--paper); overflow:hidden; position:relative; }
+  .admin-product-media img{ width:100%; height:100%; object-fit:cover; }
+  .admin-product-badge{ position:absolute; top:0.5rem; left:0.5rem; background:var(--black); color:var(--white); padding:0.2rem 0.6rem; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; }
+  .admin-product-body{ padding:1rem; }
+  .admin-product-name{ text-transform:uppercase; font-size:0.9rem; }
+  .admin-product-meta{ color:var(--muted); font-size:0.75rem; margin-top:0.3rem; }
+  .admin-product-actions{ display:flex; gap:0.5rem; margin-top:1rem; }
+  .admin-product-actions button{ flex:1; padding:0.5rem; font-size:0.7rem; }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,10,10,0.6); z-index:2000;
+    display:none; align-items:center; justify-content:center; padding:2rem;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{
+    background:var(--white); border:3px solid var(--black); width:100%; max-width:640px;
+    max-height:90vh; overflow-y:auto; padding:2.5rem; position:relative;
+  }
+  .modal-box-close{
+    position:absolute; top:1rem; right:1rem; width:34px; height:34px; border:2px solid var(--black);
+    background:var(--white); font-size:1.4rem; display:flex; align-items:center; justify-content:center;
+  }
+  .modal-box-close:hover{ background:var(--black); color:var(--white); }
+  .modal-box h2{ font-size:1.25rem; margin-bottom:1.5rem; }
+  .photo-input-row{ display:flex; gap:1rem; align-items:flex-start; margin-bottom:1.25rem; }
+  #photo-preview{ width:100px; height:130px; border:3px solid var(--black); background:var(--paper); object-fit:cover; flex-shrink:0; }
+  .modal-actions{ display:flex; gap:1rem; margin-top:2rem; }
+  .modal-actions .btn{ flex:1; }
+
+  /* ---------- SETTINGS ---------- */
+  .settings-section{ border:3px solid var(--black); padding:1.75rem; margin-bottom:2rem; }
+  .settings-section h3{ font-size:1rem; margin-bottom:1.5rem; }
+  .footer-note{ color:var(--muted); font-size:0.8rem; margin-top:-0.75rem; margin-bottom:1.25rem; }
+
+  #save-toast{
+    position:fixed; bottom:2rem; right:2rem; background:var(--black); color:var(--white);
+    padding:1rem 1.5rem; text-transform:uppercase; letter-spacing:0.1em; font-size:0.8rem;
+    transform:translateY(150%); transition:transform 0.3s ease; z-index:3000;
+  }
+  #save-toast.show{ transform:translateY(0); }
+
+  @media (max-width:900px){
+    #sidebar{ width:70px; }
+    #sidebar-brand div, #sidebar-brand span, #sidebar-footer, .sidebar-link span.link-text{ display:none; }
+    #main{ margin-left:70px; padding:2rem 1.25rem; }
+    .field-row{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="grain"></div>
+
+<div id="login-screen">
+  <div id="login-box">
+    <h1>High Class Kicks</h1>
+    <p>Admin Access</p>
+    <div id="login-error">Incorrect password</div>
+    <input type="password" id="login-password" placeholder="PASSWORD" autocomplete="off">
+    <button class="btn btn-dark" id="login-submit" style="width:100%;">Enter</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-brand">
+      <div>High Class Kicks</div>
+      <span>Admin Panel</span>
+    </div>
+    <nav id="sidebar-nav">
+      <button class="sidebar-link active" data-view="dashboard"><span class="link-text">Dashboard</span></button>
+      <button class="sidebar-link" data-view="products"><span class="link-text">Products</span></button>
+      <button class="sidebar-link" data-view="stripe"><span class="link-text">Stripe</span></button>
+      <button class="sidebar-link" data-view="settings"><span class="link-text">Settings</span></button>
+    </nav>
+    <div id="sidebar-footer">
+      <button class="btn" id="logout-btn" style="width:100%;">Log Out</button>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-header"><h2>Dashboard</h2></div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="label">Revenue Today</div><div class="metric-value" id="rev-today">$0.00</div></div>
+        <div class="metric-card"><div class="label">Revenue This Month</div><div class="metric-value" id="rev-month">$0.00</div></div>
+        <div class="metric-card"><div class="label">Revenue This Year</div><div class="metric-value" id="rev-year">$0.00</div></div>
+        <div class="metric-card"><div class="label">Revenue All Time</div><div class="metric-value" id="rev-all">$0.00</div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Revenue — Last 6 Months</h3>
+        <div id="revenue-chart"></div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="label">Visitors Today</div><div class="metric-value" id="vis-today">0</div></div>
+        <div class="metric-card"><div class="label">Visitors This Month</div><div class="metric-value" id="vis-month">0</div></div>
+        <div class="metric-card"><div class="label">Visitors This Year</div><div class="metric-value" id="vis-year">0</div></div>
+        <div class="metric-card"><div class="label">Visitors All Time</div><div class="metric-value" id="vis-all">0</div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Google Analytics</h3>
+        <div class="field">
+          <label>Measurement ID (e.g. G-XXXXXXXXXX)</label>
+          <input type="text" id="ga-id-input" placeholder="G-XXXXXXXXXX">
+        </div>
+        <button class="btn btn-dark" id="save-ga-btn">Save Analytics ID</button>
+      </div>
+
+      <div class="panel">
+        <h3>Log a Sale</h3>
+        <p class="footer-note" style="margin-top:0;">No payment webhook is connected, so log sales manually here to track revenue on this dashboard.</p>
+        <div class="log-sale-form">
+          <select id="log-sale-product"></select>
+          <input type="number" id="log-sale-amount" placeholder="Amount" step="0.01" min="0">
+          <button class="btn btn-dark" id="log-sale-btn">Log Sale</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Recent Orders</h3>
+        <div id="recent-orders"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Top Products</h3>
+        <div id="top-products"></div>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="view" id="view-products">
+      <div class="view-header">
+        <h2>Products</h2>
+        <button class="btn btn-dark" id="add-product-btn">+ Add Product</button>
+      </div>
+      <div id="products-grid"></div>
+    </section>
+
+    <!-- STRIPE -->
+    <section class="view" id="view-stripe">
+      <div class="view-header"><h2>Stripe</h2></div>
+      <div class="panel">
+        <h3>API Keys</h3>
+        <p class="footer-note" style="margin-top:0;">Keys are stored only in this browser's local storage. The secret key is never sent anywhere by this site — it's kept here purely for your own reference.</p>
+        <div class="field">
+          <label>Publishable Key</label>
+          <input type="text" id="stripe-pub-key" placeholder="pk_live_...">
+        </div>
+        <div class="field">
+          <label>Secret Key</label>
+          <input type="password" id="stripe-secret-key" placeholder="sk_live_...">
+        </div>
+        <button class="btn btn-dark" id="save-stripe-btn">Save Keys</button>
+      </div>
+      <div class="panel">
+        <h3>Creating a Payment Link</h3>
+        <div class="list-row"><span>1. Log in to your Stripe Dashboard.</span></div>
+        <div class="list-row"><span>2. Go to Payment Links → Create a new payment link.</span></div>
+        <div class="list-row"><span>3. Add the product, price, and any options (e.g. shipping).</span></div>
+        <div class="list-row"><span>4. Click Create Link, then copy the generated URL.</span></div>
+        <div class="list-row" style="border-bottom:none;"><span>5. Paste that URL into the product's "Stripe Payment Link" field in the Products tab.</span></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="view-header">
+        <h2>Settings</h2>
+        <button class="btn btn-dark" id="save-settings-btn">Save All Settings</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Brand</h3>
+        <div class="field"><label>Brand Name</label><input type="text" id="s-brandName"></div>
+        <div class="field"><label>Contact Email</label><input type="email" id="s-contactEmail"></div>
+        <div class="field"><label>Instagram Handle</label><input type="text" id="s-instagramHandle"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>SEO</h3>
+        <div class="field"><label>SEO Title</label><input type="text" id="s-seoTitle"></div>
+        <div class="field"><label>SEO Description</label><textarea id="s-seoDescription"></textarea></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Announcement Banner</h3>
+        <div class="toggle-row"><input type="checkbox" id="s-bannerEnabled"><label for="s-bannerEnabled">Show announcement banner</label></div>
+        <div class="field"><label>Banner Text</label><input type="text" id="s-bannerText"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Shop Header</h3>
+        <div class="field-row">
+          <div class="field"><label>Headline Line 1 (solid)</label><input type="text" id="s-headlineLine1"></div>
+          <div class="field"><label>Headline Line 2 (outline)</label><input type="text" id="s-headlineLine2"></div>
+        </div>
+        <div class="field"><label>Tagline</label><textarea id="s-tagline"></textarea></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Instagram Section</h3>
+        <div class="toggle-row"><input type="checkbox" id="s-instagramEnabled"><label for="s-instagramEnabled">Show Instagram section</label></div>
+        <div class="field"><label>Behold Feed ID</label><input type="text" id="s-beholdFeedId" placeholder="e.g. abc123"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Footer</h3>
+        <div class="field"><label>Brand Description</label><textarea id="s-footerDescription"></textarea></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Admin Password</h3>
+        <div class="field"><label>Current Password</label><input type="password" id="s-currentPassword"></div>
+        <div class="field"><label>New Password</label><input type="password" id="s-newPassword"></div>
+        <div class="field"><label>Confirm New Password</label><input type="password" id="s-confirmPassword"></div>
+        <button class="btn" id="change-password-btn">Change Password</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal-overlay">
+  <div class="modal-box">
+    <button class="modal-box-close" id="product-modal-close">&times;</button>
+    <h2 id="product-modal-title">Add Product</h2>
+    <input type="hidden" id="p-id">
+
+    <div class="photo-input-row">
+      <img id="photo-preview" src="" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27130%27%3E%3Crect width=%27100%25%27 height=%27100%25%27 fill=%27%23e8e4db%27/%3E%3C/svg%3E'">
+      <div style="flex:1;">
+        <div class="field"><label>Paste Image URL</label><input type="text" id="p-image-url" placeholder="https://..."></div>
+        <div class="field"><label>Or Upload Photo</label><input type="file" id="p-image-file" accept="image/*"></div>
+      </div>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="p-name"></div>
+    <div class="field"><label>Sub-label</label><input type="text" id="p-sub" placeholder="e.g. Nike / Air Jordan 1"></div>
+
+    <div class="field-row">
+      <div class="field"><label>Price ($)</label><input type="number" id="p-price" step="0.01" min="0"></div>
+      <div class="field"><label>Size(s) — comma separated</label><input type="text" id="p-size" placeholder="US 9, US 10, US 11"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Category</label>
+        <select id="p-category">
+          <option value="Shoes">Shoes</option>
+          <option value="Clothing">Clothing</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Badge</label>
+        <select id="p-badge">
+          <option value="">None</option>
+          <option value="New">New</option>
+          <option value="Few Left">Few Left</option>
+          <option value="Sold Out">Sold Out</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field"><label>Description</label><textarea id="p-description"></textarea></div>
+    <div class="field"><label>Stripe Payment Link</label><input type="url" id="p-stripe-link" placeholder="https://buy.stripe.com/..."></div>
+
+    <div class="modal-actions">
+      <button class="btn" id="product-modal-cancel">Cancel</button>
+      <button class="btn btn-dark" id="product-modal-save">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<div id="save-toast">Saved</div>
+
+<script>
+/* ================= SUPABASE CONFIG ================= */
+const SB_URL = 'https://YOUR-PROJECT.supabase.co';
+const SB_KEY = 'YOUR-ANON-KEY';
+const ADMIN_SECRET = 'hck-admin-2025';
+const SB_HEADERS = {
+  'apikey': SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+  'Content-Type': 'application/json',
+  'x-admin-secret': ADMIN_SECRET
+};
+
+async function sbGet(path){
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: SB_HEADERS });
+  if(!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
+}
+async function sbPost(path, data){
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    method:'POST',
+    headers:{ ...SB_HEADERS, Prefer:'return=representation' },
+    body: JSON.stringify(data)
+  });
+  if(!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+  return res.json();
+}
+async function sbPatch(path, data){
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    method:'PATCH',
+    headers:{ ...SB_HEADERS, Prefer:'return=representation' },
+    body: JSON.stringify(data)
+  });
+  if(!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
+  return res.json();
+}
+async function sbDelete(path){
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method:'DELETE', headers: SB_HEADERS });
+  if(!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+  return true;
+}
+
+/* ================= DEFAULTS ================= */
+const DEFAULT_SETTINGS = {
+  brandName: 'High Class Kicks',
+  seoTitle: 'High Class Kicks — Vintage, Hypebeast & Designer',
+  seoDescription: 'Curated vintage, hypebeast, and designer shoes & clothing. Based in California. Shop the drop.',
+  contactEmail: 'hello@highclasskicks.ca',
+  instagramHandle: '@highclasskicks.ca',
+  bannerEnabled: true,
+  bannerText: 'WELCOME TO HIGH CLASS KICKS — NEW DROPS WEEKLY',
+  headlineLine1: 'HIGH CLASS',
+  headlineLine2: 'KICKS',
+  tagline: 'Vintage. Hypebeast. Designer. Curated pieces for people who take their fits seriously.',
+  instagramEnabled: true,
+  beholdFeedId: '',
+  footer: {
+    description: 'High Class Kicks is a California-based curated shop for vintage, hypebeast, and designer shoes and clothing. Every piece is hand-picked for quality, condition, and character — no filler, no fast fashion. From rare vintage grails to sought-after designer and hypebeast staples, we curate pieces for people who take their fits seriously. New drops land weekly, so check back often or follow along on Instagram to see what\'s next.'
+  },
+  gaId: '',
+  revenueLog: []
+};
+const DEFAULT_PASSWORD = 'garrison2025';
+
+let SETTINGS = null;
+let PRODUCTS = [];
+let editingProductId = null;
+let uploadedImageData = null;
+
+/* ================= UTIL ================= */
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+}
+function showToast(msg){
+  const toast = document.getElementById('save-toast');
+  toast.textContent = msg || 'Saved';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+function currency(n){ return `$${(Number(n)||0).toFixed(2)}`; }
+
+/* ================= AUTH ================= */
+function getStoredPassword(){
+  return localStorage.getItem('hck_admin_password') || DEFAULT_PASSWORD;
+}
+function isAuthed(){
+  return sessionStorage.getItem('hck_admin_authed') === 'true';
+}
+document.getElementById('login-submit').addEventListener('click', attemptLogin);
+document.getElementById('login-password').addEventListener('keydown', (e) => { if(e.key === 'Enter') attemptLogin(); });
+function attemptLogin(){
+  const val = document.getElementById('login-password').value;
+  if(val === getStoredPassword()){
+    sessionStorage.setItem('hck_admin_authed', 'true');
+    document.getElementById('login-error').style.display = 'none';
+    showApp();
+  }else{
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+document.getElementById('logout-btn').addEventListener('click', () => {
+  sessionStorage.removeItem('hck_admin_authed');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  loadEverything();
+}
+
+/* ================= SIDEBAR NAV ================= */
+document.getElementById('sidebar-nav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sidebar-link');
+  if(!btn) return;
+  document.querySelectorAll('.sidebar-link').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
+});
+
+/* ================= LOAD DATA ================= */
+async function loadEverything(){
+  await loadSettings();
+  await loadProducts();
+  renderDashboard();
+  renderProducts();
+  populateSettingsForm();
+  populateStripeForm();
+}
+
+async function loadSettings(){
+  try{
+    const rows = await sbGet('settings?id=eq.1&select=data');
+    if(rows && rows[0] && rows[0].data){
+      SETTINGS = { ...DEFAULT_SETTINGS, ...rows[0].data };
+      SETTINGS.footer = { ...DEFAULT_SETTINGS.footer, ...(rows[0].data.footer || {}) };
+      SETTINGS.revenueLog = rows[0].data.revenueLog || [];
+    }else{
+      SETTINGS = { ...DEFAULT_SETTINGS };
+      await sbPost('settings', { id: 1, data: SETTINGS });
+    }
+  }catch(e){
+    console.warn('Settings load failed, using defaults in memory only.', e);
+    SETTINGS = { ...DEFAULT_SETTINGS };
+  }
+}
+async function saveSettingsToSupabase(){
+  await sbPatch('settings?id=eq.1', { data: SETTINGS });
+}
+async function loadProducts(){
+  try{
+    PRODUCTS = await sbGet('products?select=*&order=sort_order.asc');
+  }catch(e){
+    console.warn('Product load failed.', e);
+    PRODUCTS = [];
+  }
+}
+
+/* ================= DASHBOARD ================= */
+async function renderDashboard(){
+  const log = SETTINGS.revenueLog || [];
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const monthStr = now.toISOString().slice(0,7);
+  const yearStr = now.toISOString().slice(0,4);
+
+  const sum = (entries) => entries.reduce((s, e) => s + Number(e.amount), 0);
+  document.getElementById('rev-today').textContent = currency(sum(log.filter(e => e.date === todayStr)));
+  document.getElementById('rev-month').textContent = currency(sum(log.filter(e => e.date.slice(0,7) === monthStr)));
+  document.getElementById('rev-year').textContent = currency(sum(log.filter(e => e.date.slice(0,4) === yearStr)));
+  document.getElementById('rev-all').textContent = currency(sum(log));
+
+  renderRevenueChart(log);
+  renderRecentOrders(log);
+  renderTopProducts(log);
+  populateLogSaleSelect();
+
+  document.getElementById('ga-id-input').value = SETTINGS.gaId || '';
+
+  try{
+    const visits = await sbGet('visits?select=created_at');
+    const vToday = visits.filter(v => v.created_at.slice(0,10) === todayStr).length;
+    const vMonth = visits.filter(v => v.created_at.slice(0,7) === monthStr).length;
+    const vYear = visits.filter(v => v.created_at.slice(0,4) === yearStr).length;
+    document.getElementById('vis-today').textContent = vToday;
+    document.getElementById('vis-month').textContent = vMonth;
+    document.getElementById('vis-year').textContent = vYear;
+    document.getElementById('vis-all').textContent = visits.length;
+  }catch(e){
+    console.warn('Visit stats load failed.', e);
+    ['vis-today','vis-month','vis-year','vis-all'].forEach(id => document.getElementById(id).textContent = '—');
+  }
+}
+
+function renderRevenueChart(log){
+  const months = [];
+  const now = new Date();
+  for(let i = 5; i >= 0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: d.toISOString().slice(0,7), label: d.toLocaleString('default',{month:'short'}) });
+  }
+  const totals = months.map(m => log.filter(e => e.date.slice(0,7) === m.key).reduce((s,e) => s + Number(e.amount), 0));
+  const max = Math.max(...totals, 1);
+  const chart = document.getElementById('revenue-chart');
+  chart.innerHTML = months.map((m, i) => `
+    <div class="chart-bar-wrap">
+      <div class="chart-bar" style="height:${Math.max((totals[i]/max)*100, totals[i] > 0 ? 4 : 0)}%;"></div>
+      <div class="chart-label">${m.label}<br>${currency(totals[i])}</div>
+    </div>
+  `).join('');
+}
+
+function renderRecentOrders(log){
+  const el = document.getElementById('recent-orders');
+  const sorted = [...log].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+  if(sorted.length === 0){
+    el.innerHTML = '<div class="list-empty">No sales logged yet</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(e => `
+    <div class="list-row"><span>${escapeHtml(e.product)} — ${e.date}</span><span>${currency(e.amount)}</span></div>
+  `).join('');
+}
+
+function renderTopProducts(log){
+  const el = document.getElementById('top-products');
+  const grouped = {};
+  log.forEach(e => {
+    if(!grouped[e.product]) grouped[e.product] = { total: 0, count: 0 };
+    grouped[e.product].total += Number(e.amount);
+    grouped[e.product].count += 1;
+  });
+  const sorted = Object.entries(grouped).sort((a,b) => b[1].total - a[1].total).slice(0, 5);
+  if(sorted.length === 0){
+    el.innerHTML = '<div class="list-empty">No sales logged yet</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(([name, data]) => `
+    <div class="list-row"><span>${escapeHtml(name)} (${data.count} sold)</span><span>${currency(data.total)}</span></div>
+  `).join('');
+}
+
+function populateLogSaleSelect(){
+  const sel = document.getElementById('log-sale-product');
+  sel.innerHTML = PRODUCTS.map(p => `<option value="${escapeHtml(p.name)}" data-price="${p.price}">${escapeHtml(p.name)}</option>`).join('') || '<option value="">No products yet</option>';
+}
+document.getElementById('log-sale-product').addEventListener('change', (e) => {
+  const opt = e.target.selectedOptions[0];
+  if(opt && opt.dataset.price) document.getElementById('log-sale-amount').value = opt.dataset.price;
+});
+document.getElementById('log-sale-btn').addEventListener('click', async () => {
+  const product = document.getElementById('log-sale-product').value;
+  const amount = parseFloat(document.getElementById('log-sale-amount').value);
+  if(!product || !amount || amount <= 0){ alert('Choose a product and enter a valid amount.'); return; }
+  SETTINGS.revenueLog = SETTINGS.revenueLog || [];
+  SETTINGS.revenueLog.push({ id: Date.now(), product, amount, date: new Date().toISOString().slice(0,10) });
+  await saveSettingsToSupabase();
+  document.getElementById('log-sale-amount').value = '';
+  renderDashboard();
+  showToast('Sale logged');
+});
+document.getElementById('save-ga-btn').addEventListener('click', async () => {
+  SETTINGS.gaId = document.getElementById('ga-id-input').value.trim();
+  await saveSettingsToSupabase();
+  showToast('Analytics ID saved');
+});
+
+/* ================= PRODUCTS ================= */
+function renderProducts(){
+  const grid = document.getElementById('products-grid');
+  if(PRODUCTS.length === 0){
+    grid.innerHTML = '<div class="list-empty">No products yet. Click "+ Add Product" to create one.</div>';
+    return;
+  }
+  grid.innerHTML = PRODUCTS.map(p => `
+    <div class="admin-product-card">
+      <div class="admin-product-media">
+        ${p.badge ? `<span class="admin-product-badge">${escapeHtml(p.badge)}</span>` : ''}
+        <img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}">
+      </div>
+      <div class="admin-product-body">
+        <div class="admin-product-name">${escapeHtml(p.name)}</div>
+        <div class="admin-product-meta">${escapeHtml(p.category)} · ${currency(p.price)}</div>
+        <div class="admin-product-actions">
+          <button class="btn" onclick="editProduct(${p.id})">Edit</button>
+          <button class="btn btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openProductModal(){
+  document.getElementById('product-modal-overlay').classList.add('open');
+}
+function closeProductModal(){
+  document.getElementById('product-modal-overlay').classList.remove('open');
+  editingProductId = null;
+  uploadedImageData = null;
+}
+document.getElementById('add-product-btn').addEventListener('click', () => {
+  editingProductId = null;
+  uploadedImageData = null;
+  document.getElementById('product-modal-title').textContent = 'Add Product';
+  document.getElementById('p-id').value = '';
+  document.getElementById('p-image-url').value = '';
+  document.getElementById('p-image-file').value = '';
+  document.getElementById('photo-preview').src = '';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-sub').value = '';
+  document.getElementById('p-price').value = '';
+  document.getElementById('p-size').value = '';
+  document.getElementById('p-category').value = 'Shoes';
+  document.getElementById('p-badge').value = '';
+  document.getElementById('p-description').value = '';
+  document.getElementById('p-stripe-link').value = '';
+  openProductModal();
+});
+window.editProduct = function(id){
+  const p = PRODUCTS.find(x => x.id === id);
+  if(!p) return;
+  editingProductId = id;
+  uploadedImageData = null;
+  document.getElementById('product-modal-title').textContent = 'Edit Product';
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-image-url').value = p.image || '';
+  document.getElementById('p-image-file').value = '';
+  document.getElementById('photo-preview').src = p.image || '';
+  document.getElementById('p-name').value = p.name || '';
+  document.getElementById('p-sub').value = p.sub || '';
+  document.getElementById('p-price').value = p.price || '';
+  document.getElementById('p-size').value = p.size || '';
+  document.getElementById('p-category').value = p.category || 'Shoes';
+  document.getElementById('p-badge').value = p.badge || '';
+  document.getElementById('p-description').value = p.description || '';
+  document.getElementById('p-stripe-link').value = p.stripe_link || '';
+  openProductModal();
+};
+window.deleteProduct = async function(id){
+  if(!confirm('Delete this product? This cannot be undone.')) return;
+  try{
+    await sbDelete(`products?id=eq.${id}`);
+    await loadProducts();
+    renderProducts();
+    populateLogSaleSelect();
+    showToast('Product deleted');
+  }catch(e){
+    alert('Could not delete product: ' + e.message);
+  }
+};
+document.getElementById('product-modal-close').addEventListener('click', closeProductModal);
+document.getElementById('product-modal-cancel').addEventListener('click', closeProductModal);
+document.getElementById('product-modal-overlay').addEventListener('click', (e) => {
+  if(e.target.id === 'product-modal-overlay') closeProductModal();
+});
+document.getElementById('p-image-url').addEventListener('input', (e) => {
+  uploadedImageData = null;
+  document.getElementById('photo-preview').src = e.target.value;
+});
+document.getElementById('p-image-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    uploadedImageData = ev.target.result;
+    document.getElementById('photo-preview').src = uploadedImageData;
+    document.getElementById('p-image-url').value = '';
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('product-modal-save').addEventListener('click', async () => {
+  const name = document.getElementById('p-name').value.trim();
+  const price = parseFloat(document.getElementById('p-price').value);
+  if(!name || isNaN(price)){ alert('Name and price are required.'); return; }
+
+  const badge = document.getElementById('p-badge').value;
+  const image = uploadedImageData || document.getElementById('p-image-url').value.trim();
+
+  const data = {
+    name,
+    sub: document.getElementById('p-sub').value.trim(),
+    price,
+    size: document.getElementById('p-size').value.trim(),
+    category: document.getElementById('p-category').value,
+    badge: badge || null,
+    sold_out: badge === 'Sold Out',
+    image,
+    description: document.getElementById('p-description').value.trim(),
+    stripe_link: document.getElementById('p-stripe-link').value.trim()
+  };
+
+  try{
+    if(editingProductId){
+      await sbPatch(`products?id=eq.${editingProductId}`, data);
+    }else{
+      data.sort_order = PRODUCTS.length > 0 ? Math.max(...PRODUCTS.map(p => p.sort_order || 0)) + 1 : 0;
+      await sbPost('products', data);
+    }
+    await loadProducts();
+    renderProducts();
+    populateLogSaleSelect();
+    closeProductModal();
+    showToast('Product saved');
+  }catch(e){
+    alert('Could not save product: ' + e.message);
+  }
+});
+
+/* ================= STRIPE ================= */
+function populateStripeForm(){
+  document.getElementById('stripe-pub-key').value = localStorage.getItem('hck_stripe_pub') || '';
+  document.getElementById('stripe-secret-key').value = localStorage.getItem('hck_stripe_secret') || '';
+}
+document.getElementById('save-stripe-btn').addEventListener('click', () => {
+  localStorage.setItem('hck_stripe_pub', document.getElementById('stripe-pub-key').value.trim());
+  localStorage.setItem('hck_stripe_secret', document.getElementById('stripe-secret-key').value.trim());
+  showToast('Stripe keys saved');
+});
+
+/* ================= SETTINGS ================= */
+function populateSettingsForm(){
+  document.getElementById('s-brandName').value = SETTINGS.brandName || '';
+  document.getElementById('s-contactEmail').value = SETTINGS.contactEmail || '';
+  document.getElementById('s-instagramHandle').value = SETTINGS.instagramHandle || '';
+  document.getElementById('s-seoTitle').value = SETTINGS.seoTitle || '';
+  document.getElementById('s-seoDescription').value = SETTINGS.seoDescription || '';
+  document.getElementById('s-bannerEnabled').checked = SETTINGS.bannerEnabled !== false;
+  document.getElementById('s-bannerText').value = SETTINGS.bannerText || '';
+  document.getElementById('s-headlineLine1').value = SETTINGS.headlineLine1 || '';
+  document.getElementById('s-headlineLine2').value = SETTINGS.headlineLine2 || '';
+  document.getElementById('s-tagline').value = SETTINGS.tagline || '';
+  document.getElementById('s-instagramEnabled').checked = SETTINGS.instagramEnabled !== false;
+  document.getElementById('s-beholdFeedId').value = SETTINGS.beholdFeedId || '';
+  document.getElementById('s-footerDescription').value = (SETTINGS.footer || {}).description || '';
+}
+
+document.getElementById('save-settings-btn').addEventListener('click', async () => {
+  SETTINGS.brandName = document.getElementById('s-brandName').value.trim();
+  SETTINGS.contactEmail = document.getElementById('s-contactEmail').value.trim();
+  SETTINGS.instagramHandle = document.getElementById('s-instagramHandle').value.trim();
+  SETTINGS.seoTitle = document.getElementById('s-seoTitle').value.trim();
+  SETTINGS.seoDescription = document.getElementById('s-seoDescription').value.trim();
+  SETTINGS.bannerEnabled = document.getElementById('s-bannerEnabled').checked;
+  SETTINGS.bannerText = document.getElementById('s-bannerText').value.trim();
+  SETTINGS.headlineLine1 = document.getElementById('s-headlineLine1').value.trim();
+  SETTINGS.headlineLine2 = document.getElementById('s-headlineLine2').value.trim();
+  SETTINGS.tagline = document.getElementById('s-tagline').value.trim();
+  SETTINGS.instagramEnabled = document.getElementById('s-instagramEnabled').checked;
+  SETTINGS.beholdFeedId = document.getElementById('s-beholdFeedId').value.trim();
+  SETTINGS.footer = {
+    description: document.getElementById('s-footerDescription').value.trim()
+  };
+
+  try{
+    await saveSettingsToSupabase();
+    showToast('Settings saved');
+  }catch(e){
+    alert('Could not save settings: ' + e.message);
+  }
+});
+
+document.getElementById('change-password-btn').addEventListener('click', () => {
+  const current = document.getElementById('s-currentPassword').value;
+  const next = document.getElementById('s-newPassword').value;
+  const confirm2 = document.getElementById('s-confirmPassword').value;
+  if(current !== getStoredPassword()){ alert('Current password is incorrect.'); return; }
+  if(!next || next.length < 4){ alert('New password must be at least 4 characters.'); return; }
+  if(next !== confirm2){ alert('New password and confirmation do not match.'); return; }
+  localStorage.setItem('hck_admin_password', next);
+  document.getElementById('s-currentPassword').value = '';
+  document.getElementById('s-newPassword').value = '';
+  document.getElementById('s-confirmPassword').value = '';
+  showToast('Password changed');
+});
+
+/* ================= INIT ================= */
+if(isAuthed()){
+  showApp();
+}
+</script>
+</body>
+</html>
