@@ -331,6 +331,7 @@
 
       <div class="settings-section">
         <h3>Admin Password</h3>
+        <p class="footer-note" style="margin-top:0;">This changes the real login for this admin panel (min. 6 characters).</p>
         <div class="field"><label>Current Password</label><input type="password" id="s-currentPassword"></div>
         <div class="field"><label>New Password</label><input type="password" id="s-newPassword"></div>
         <div class="field"><label>Confirm New Password</label><input type="password" id="s-confirmPassword"></div>
@@ -400,23 +401,28 @@
 /* ================= SUPABASE CONFIG ================= */
 const SB_URL = 'https://YOUR-PROJECT.supabase.co';
 const SB_KEY = 'YOUR-ANON-KEY';
-const ADMIN_SECRET = 'hck-admin-2025';
-const SB_HEADERS = {
-  'apikey': SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-  'Content-Type': 'application/json',
-  'x-admin-secret': ADMIN_SECRET
-};
+// Dedicated Supabase Auth user for the admin panel — create this user in the
+// Supabase dashboard (Authentication > Users). It has no connection to your
+// own Supabase account login; it only grants access to admin.html.
+const ADMIN_EMAIL = 'admin@highclasskicks.internal';
 
+function authHeaders(extra){
+  return {
+    'apikey': SB_KEY,
+    'Authorization': `Bearer ${ADMIN_SESSION ? ADMIN_SESSION.access_token : SB_KEY}`,
+    'Content-Type': 'application/json',
+    ...(extra || {})
+  };
+}
 async function sbGet(path){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: SB_HEADERS });
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: authHeaders() });
   if(!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 async function sbPost(path, data){
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
     method:'POST',
-    headers:{ ...SB_HEADERS, Prefer:'return=representation' },
+    headers: authHeaders({ Prefer:'return=representation' }),
     body: JSON.stringify(data)
   });
   if(!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
@@ -425,14 +431,14 @@ async function sbPost(path, data){
 async function sbPatch(path, data){
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
     method:'PATCH',
-    headers:{ ...SB_HEADERS, Prefer:'return=representation' },
+    headers: authHeaders({ Prefer:'return=representation' }),
     body: JSON.stringify(data)
   });
   if(!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
   return res.json();
 }
 async function sbDelete(path){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method:'DELETE', headers: SB_HEADERS });
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method:'DELETE', headers: authHeaders() });
   if(!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
   return true;
 }
@@ -457,12 +463,13 @@ const DEFAULT_SETTINGS = {
   gaId: '',
   revenueLog: []
 };
-const DEFAULT_PASSWORD = 'garrison2025';
 
 let SETTINGS = null;
 let PRODUCTS = [];
 let editingProductId = null;
 let uploadedImageData = null;
+let ADMIN_SESSION = null;
+try{ ADMIN_SESSION = JSON.parse(sessionStorage.getItem('hck_admin_session')); }catch(e){ ADMIN_SESSION = null; }
 
 /* ================= UTIL ================= */
 function escapeHtml(str){
@@ -479,27 +486,49 @@ function showToast(msg){
 }
 function currency(n){ return `$${(Number(n)||0).toFixed(2)}`; }
 
-/* ================= AUTH ================= */
-function getStoredPassword(){
-  return localStorage.getItem('hck_admin_password') || DEFAULT_PASSWORD;
-}
+/* ================= AUTH (Supabase Auth — separate from your Supabase account login) ================= */
 function isAuthed(){
-  return sessionStorage.getItem('hck_admin_authed') === 'true';
+  return !!(ADMIN_SESSION && ADMIN_SESSION.access_token);
+}
+async function signIn(email, password){
+  const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if(!res.ok || !data.access_token) return null;
+  return { access_token: data.access_token, refresh_token: data.refresh_token };
 }
 document.getElementById('login-submit').addEventListener('click', attemptLogin);
 document.getElementById('login-password').addEventListener('keydown', (e) => { if(e.key === 'Enter') attemptLogin(); });
-function attemptLogin(){
+async function attemptLogin(){
+  const btn = document.getElementById('login-submit');
   const val = document.getElementById('login-password').value;
-  if(val === getStoredPassword()){
-    sessionStorage.setItem('hck_admin_authed', 'true');
-    document.getElementById('login-error').style.display = 'none';
-    showApp();
-  }else{
+  btn.disabled = true;
+  try{
+    const session = await signIn(ADMIN_EMAIL, val);
+    if(session){
+      ADMIN_SESSION = session;
+      sessionStorage.setItem('hck_admin_session', JSON.stringify(ADMIN_SESSION));
+      document.getElementById('login-error').style.display = 'none';
+      document.getElementById('login-password').value = '';
+      showApp();
+    }else{
+      document.getElementById('login-error').style.display = 'block';
+    }
+  }catch(e){
     document.getElementById('login-error').style.display = 'block';
+  }finally{
+    btn.disabled = false;
   }
 }
 document.getElementById('logout-btn').addEventListener('click', () => {
-  sessionStorage.removeItem('hck_admin_authed');
+  if(ADMIN_SESSION){
+    fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers: authHeaders() }).catch(() => {});
+  }
+  ADMIN_SESSION = null;
+  sessionStorage.removeItem('hck_admin_session');
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
 });
@@ -859,18 +888,32 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
   }
 });
 
-document.getElementById('change-password-btn').addEventListener('click', () => {
+document.getElementById('change-password-btn').addEventListener('click', async () => {
   const current = document.getElementById('s-currentPassword').value;
   const next = document.getElementById('s-newPassword').value;
   const confirm2 = document.getElementById('s-confirmPassword').value;
-  if(current !== getStoredPassword()){ alert('Current password is incorrect.'); return; }
-  if(!next || next.length < 4){ alert('New password must be at least 4 characters.'); return; }
+  if(!next || next.length < 6){ alert('New password must be at least 6 characters.'); return; }
   if(next !== confirm2){ alert('New password and confirmation do not match.'); return; }
-  localStorage.setItem('hck_admin_password', next);
-  document.getElementById('s-currentPassword').value = '';
-  document.getElementById('s-newPassword').value = '';
-  document.getElementById('s-confirmPassword').value = '';
-  showToast('Password changed');
+
+  const verified = await signIn(ADMIN_EMAIL, current);
+  if(!verified){ alert('Current password is incorrect.'); return; }
+
+  try{
+    const res = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${verified.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: next })
+    });
+    if(!res.ok) throw new Error(`Update failed: ${res.status}`);
+    ADMIN_SESSION = verified;
+    sessionStorage.setItem('hck_admin_session', JSON.stringify(ADMIN_SESSION));
+    document.getElementById('s-currentPassword').value = '';
+    document.getElementById('s-newPassword').value = '';
+    document.getElementById('s-confirmPassword').value = '';
+    showToast('Password changed');
+  }catch(e){
+    alert('Could not change password: ' + e.message);
+  }
 });
 
 /* ================= INIT ================= */
