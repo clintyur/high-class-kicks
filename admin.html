@@ -154,11 +154,60 @@
   }
   #save-toast.show{ transform:translateY(0); }
 
+  /* ---------- CONFIRM / ALERT DIALOG ---------- */
+  #dialog-overlay{
+    position:fixed; inset:0; background:rgba(10,10,10,0.6); z-index:4000;
+    display:none; align-items:center; justify-content:center; padding:2rem;
+  }
+  #dialog-overlay.open{ display:flex; }
+  #dialog-box{
+    background:var(--white); border:3px solid var(--black); width:100%; max-width:400px; padding:2rem;
+  }
+  #dialog-message{ font-size:0.95rem; line-height:1.6; margin-bottom:1.75rem; white-space:pre-wrap; }
+  #dialog-actions{ display:flex; gap:1rem; }
+  #dialog-actions .btn{ flex:1; }
+
+  /* ---------- ADMIN MOBILE NAV ---------- */
+  #admin-topbar{
+    display:none; align-items:center; justify-content:space-between;
+    position:fixed; top:0; left:0; width:100%; z-index:100;
+    background:var(--white); border-bottom:3px solid var(--black);
+    padding:1rem 1.25rem;
+  }
+  #admin-topbar-brand{ text-transform:uppercase; letter-spacing:0.1em; font-size:0.9rem; }
+  .hamburger{
+    display:flex; flex-direction:column; justify-content:center; gap:5px;
+    width:32px; height:32px; padding:0;
+  }
+  .hamburger span{ display:block; height:3px; width:100%; background:var(--black); }
+  #admin-mobile-menu-overlay{
+    position:fixed; inset:0; background:rgba(10,10,10,0.5);
+    z-index:1400; opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+  }
+  #admin-mobile-menu-overlay.open{ opacity:1; pointer-events:auto; }
+  #admin-mobile-menu{
+    position:fixed; top:0; right:0; height:100%; width:min(300px, 80vw);
+    background:var(--white); border-left:3px solid var(--black);
+    z-index:1500; transform:translateX(100%); transition:transform 0.3s ease;
+    display:flex; flex-direction:column;
+  }
+  #admin-mobile-menu.open{ transform:translateX(0); }
+  #admin-mobile-menu-header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:1.5rem; border-bottom:3px solid var(--black);
+  }
+  #admin-mobile-menu-close{ font-size:1.6rem; line-height:1; }
+  #admin-mobile-menu-links{ display:flex; flex-direction:column; padding:1rem 0.5rem; gap:0.25rem; }
+
   @media (max-width:900px){
-    #sidebar{ width:70px; }
-    #sidebar-brand div, #sidebar-brand span, #sidebar-footer, .sidebar-link span.link-text{ display:none; }
-    #main{ margin-left:70px; padding:2rem 1.25rem; }
+    #sidebar{ display:none; }
+    #admin-topbar{ display:flex; }
+    #main{ margin-left:0; padding:5.5rem 1.25rem 2rem; }
     .field-row{ grid-template-columns:1fr; }
+    .modal-box{ padding:1.5rem; max-height:85vh; }
+    .photo-input-row{ flex-direction:column; }
+    #photo-preview{ width:100%; height:auto; aspect-ratio:3/4; max-width:180px; }
+    input[type="file"]{ max-width:100%; }
   }
 </style>
 </head>
@@ -177,6 +226,28 @@
 </div>
 
 <div id="app">
+  <div id="admin-topbar">
+    <span id="admin-topbar-brand">High Class Kicks</span>
+    <button class="hamburger" id="admin-hamburger-toggle" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div id="admin-mobile-menu-overlay"></div>
+  <div id="admin-mobile-menu">
+    <div id="admin-mobile-menu-header">
+      <span class="label">Menu</span>
+      <button id="admin-mobile-menu-close" aria-label="Close menu">&times;</button>
+    </div>
+    <nav id="admin-mobile-menu-links">
+      <button class="sidebar-link active" data-view="dashboard">Dashboard</button>
+      <button class="sidebar-link" data-view="products">Products</button>
+      <button class="sidebar-link" data-view="stripe">Stripe</button>
+      <button class="sidebar-link" data-view="settings">Settings</button>
+    </nav>
+    <div id="sidebar-footer">
+      <button class="btn" id="mobile-logout-btn" style="width:100%;">Log Out</button>
+    </div>
+  </div>
   <div id="sidebar">
     <div id="sidebar-brand">
       <div>High Class Kicks</div>
@@ -353,7 +424,11 @@
       <img id="photo-preview" src="" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27130%27%3E%3Crect width=%27100%25%27 height=%27100%25%27 fill=%27%23e8e4db%27/%3E%3C/svg%3E'">
       <div style="flex:1;">
         <div class="field"><label>Paste Image URL</label><input type="text" id="p-image-url" placeholder="https://..."></div>
-        <div class="field"><label>Or Upload Photo</label><input type="file" id="p-image-file" accept="image/*"></div>
+        <div class="field">
+          <label>Or Upload Photo</label>
+          <input type="file" id="p-image-file" accept="image/*">
+          <span id="upload-status" class="footer-note" style="display:none; margin-top:0.5rem; margin-bottom:0;"></span>
+        </div>
       </div>
     </div>
 
@@ -396,6 +471,16 @@
 </div>
 
 <div id="save-toast">Saved</div>
+
+<div id="dialog-overlay">
+  <div id="dialog-box">
+    <p id="dialog-message"></p>
+    <div id="dialog-actions">
+      <button class="btn" id="dialog-cancel" style="display:none;">Cancel</button>
+      <button class="btn btn-dark" id="dialog-confirm">OK</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ================= SUPABASE CONFIG ================= */
@@ -443,6 +528,52 @@ async function sbDelete(path){
   return true;
 }
 
+/* ================= PRODUCT IMAGE STORAGE ================= */
+const STORAGE_BUCKET = 'product-images';
+
+function compressImage(file, maxDim = 1600, quality = 0.82){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if(width > maxDim || height > maxDim){
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        if(blob) resolve(blob); else reject(new Error('Image compression failed'));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Could not read image file')); };
+    img.src = objectUrl;
+  });
+}
+
+async function uploadProductImage(blob){
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const res = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': `Bearer ${ADMIN_SESSION ? ADMIN_SESSION.access_token : SB_KEY}`,
+      'Content-Type': 'image/jpeg'
+    },
+    body: blob
+  });
+  if(!res.ok){
+    const text = await res.text().catch(() => '');
+    throw new Error(`Upload failed (${res.status}): ${text || 'check that the "product-images" storage bucket exists and is public'}`);
+  }
+  return `${SB_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
+}
+
 /* ================= DEFAULTS ================= */
 const DEFAULT_SETTINGS = {
   brandName: 'High Class Kicks',
@@ -467,7 +598,6 @@ const DEFAULT_SETTINGS = {
 let SETTINGS = null;
 let PRODUCTS = [];
 let editingProductId = null;
-let uploadedImageData = null;
 let ADMIN_SESSION = null;
 try{ ADMIN_SESSION = JSON.parse(sessionStorage.getItem('hck_admin_session')); }catch(e){ ADMIN_SESSION = null; }
 
@@ -485,6 +615,53 @@ function showToast(msg){
   setTimeout(() => toast.classList.remove('show'), 2200);
 }
 function currency(n){ return `$${(Number(n)||0).toFixed(2)}`; }
+
+/* ================= DIALOG (replaces native alert/confirm) ================= */
+function showAlert(message){
+  return new Promise(resolve => {
+    const overlay = document.getElementById('dialog-overlay');
+    document.getElementById('dialog-message').textContent = message;
+    document.getElementById('dialog-cancel').style.display = 'none';
+    const confirmBtn = document.getElementById('dialog-confirm');
+    confirmBtn.textContent = 'OK';
+    overlay.classList.add('open');
+    const onConfirm = () => { overlay.classList.remove('open'); confirmBtn.removeEventListener('click', onConfirm); resolve(true); };
+    confirmBtn.addEventListener('click', onConfirm);
+  });
+}
+function showConfirm(message, confirmLabel){
+  return new Promise(resolve => {
+    const overlay = document.getElementById('dialog-overlay');
+    document.getElementById('dialog-message').textContent = message;
+    const cancelBtn = document.getElementById('dialog-cancel');
+    const confirmBtn = document.getElementById('dialog-confirm');
+    cancelBtn.style.display = 'block';
+    confirmBtn.textContent = confirmLabel || 'Confirm';
+    overlay.classList.add('open');
+    const cleanup = (result) => {
+      overlay.classList.remove('open');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    };
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
+async function withLoadingState(button, loadingText, fn){
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = loadingText;
+  try{
+    await fn();
+  }finally{
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
 
 /* ================= AUTH (Supabase Auth — separate from your Supabase account login) ================= */
 function isAuthed(){
@@ -523,7 +700,7 @@ async function attemptLogin(){
     btn.disabled = false;
   }
 }
-document.getElementById('logout-btn').addEventListener('click', () => {
+function doLogout(){
   if(ADMIN_SESSION){
     fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers: authHeaders() }).catch(() => {});
   }
@@ -531,21 +708,36 @@ document.getElementById('logout-btn').addEventListener('click', () => {
   sessionStorage.removeItem('hck_admin_session');
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-});
+}
+document.getElementById('logout-btn').addEventListener('click', doLogout);
+document.getElementById('mobile-logout-btn').addEventListener('click', doLogout);
 function showApp(){
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   loadEverything();
 }
 
-/* ================= SIDEBAR NAV ================= */
-document.getElementById('sidebar-nav').addEventListener('click', (e) => {
+/* ================= NAV (desktop sidebar + mobile menu, kept in sync) ================= */
+document.addEventListener('click', (e) => {
   const btn = e.target.closest('.sidebar-link');
   if(!btn) return;
-  document.querySelectorAll('.sidebar-link').forEach(b => b.classList.toggle('active', b === btn));
+  const view = btn.dataset.view;
+  document.querySelectorAll('.sidebar-link').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
+  document.getElementById(`view-${view}`).classList.add('active');
+  closeAdminMobileMenu();
 });
+function openAdminMobileMenu(){
+  document.getElementById('admin-mobile-menu').classList.add('open');
+  document.getElementById('admin-mobile-menu-overlay').classList.add('open');
+}
+function closeAdminMobileMenu(){
+  document.getElementById('admin-mobile-menu').classList.remove('open');
+  document.getElementById('admin-mobile-menu-overlay').classList.remove('open');
+}
+document.getElementById('admin-hamburger-toggle').addEventListener('click', openAdminMobileMenu);
+document.getElementById('admin-mobile-menu-close').addEventListener('click', closeAdminMobileMenu);
+document.getElementById('admin-mobile-menu-overlay').addEventListener('click', closeAdminMobileMenu);
 
 /* ================= LOAD DATA ================= */
 async function loadEverything(){
@@ -677,21 +869,25 @@ document.getElementById('log-sale-product').addEventListener('change', (e) => {
   const opt = e.target.selectedOptions[0];
   if(opt && opt.dataset.price) document.getElementById('log-sale-amount').value = opt.dataset.price;
 });
-document.getElementById('log-sale-btn').addEventListener('click', async () => {
+document.getElementById('log-sale-btn').addEventListener('click', async (e) => {
   const product = document.getElementById('log-sale-product').value;
   const amount = parseFloat(document.getElementById('log-sale-amount').value);
-  if(!product || !amount || amount <= 0){ alert('Choose a product and enter a valid amount.'); return; }
-  SETTINGS.revenueLog = SETTINGS.revenueLog || [];
-  SETTINGS.revenueLog.push({ id: Date.now(), product, amount, date: new Date().toISOString().slice(0,10) });
-  await saveSettingsToSupabase();
-  document.getElementById('log-sale-amount').value = '';
-  renderDashboard();
-  showToast('Sale logged');
+  if(!product || !amount || amount <= 0){ await showAlert('Choose a product and enter a valid amount.'); return; }
+  await withLoadingState(e.currentTarget, 'Logging...', async () => {
+    SETTINGS.revenueLog = SETTINGS.revenueLog || [];
+    SETTINGS.revenueLog.push({ id: Date.now(), product, amount, date: new Date().toISOString().slice(0,10) });
+    await saveSettingsToSupabase();
+    document.getElementById('log-sale-amount').value = '';
+    renderDashboard();
+    showToast('Sale logged');
+  });
 });
-document.getElementById('save-ga-btn').addEventListener('click', async () => {
-  SETTINGS.gaId = document.getElementById('ga-id-input').value.trim();
-  await saveSettingsToSupabase();
-  showToast('Analytics ID saved');
+document.getElementById('save-ga-btn').addEventListener('click', async (e) => {
+  await withLoadingState(e.currentTarget, 'Saving...', async () => {
+    SETTINGS.gaId = document.getElementById('ga-id-input').value.trim();
+    await saveSettingsToSupabase();
+    showToast('Analytics ID saved');
+  });
 });
 
 /* ================= PRODUCTS ================= */
@@ -712,7 +908,7 @@ function renderProducts(){
         <div class="admin-product-meta">${escapeHtml(p.category)} · ${currency(p.price)}</div>
         <div class="admin-product-actions">
           <button class="btn" onclick="editProduct(${p.id})">Edit</button>
-          <button class="btn btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+          <button class="btn btn-danger" onclick="deleteProduct(${p.id}, this)">Delete</button>
         </div>
       </div>
     </div>
@@ -725,11 +921,9 @@ function openProductModal(){
 function closeProductModal(){
   document.getElementById('product-modal-overlay').classList.remove('open');
   editingProductId = null;
-  uploadedImageData = null;
 }
 document.getElementById('add-product-btn').addEventListener('click', () => {
   editingProductId = null;
-  uploadedImageData = null;
   document.getElementById('product-modal-title').textContent = 'Add Product';
   document.getElementById('p-id').value = '';
   document.getElementById('p-image-url').value = '';
@@ -749,7 +943,6 @@ window.editProduct = function(id){
   const p = PRODUCTS.find(x => x.id === id);
   if(!p) return;
   editingProductId = id;
-  uploadedImageData = null;
   document.getElementById('product-modal-title').textContent = 'Edit Product';
   document.getElementById('p-id').value = p.id;
   document.getElementById('p-image-url').value = p.image || '';
@@ -765,17 +958,20 @@ window.editProduct = function(id){
   document.getElementById('p-stripe-link').value = p.stripe_link || '';
   openProductModal();
 };
-window.deleteProduct = async function(id){
-  if(!confirm('Delete this product? This cannot be undone.')) return;
-  try{
-    await sbDelete(`products?id=eq.${id}`);
-    await loadProducts();
-    renderProducts();
-    populateLogSaleSelect();
-    showToast('Product deleted');
-  }catch(e){
-    alert('Could not delete product: ' + e.message);
-  }
+window.deleteProduct = async function(id, btn){
+  const ok = await showConfirm('Delete this product? This cannot be undone.', 'Delete');
+  if(!ok) return;
+  await withLoadingState(btn, 'Deleting...', async () => {
+    try{
+      await sbDelete(`products?id=eq.${id}`);
+      await loadProducts();
+      renderProducts();
+      populateLogSaleSelect();
+      showToast('Product deleted');
+    }catch(e){
+      await showAlert('Could not delete product: ' + e.message);
+    }
+  });
 };
 document.getElementById('product-modal-close').addEventListener('click', closeProductModal);
 document.getElementById('product-modal-cancel').addEventListener('click', closeProductModal);
@@ -783,27 +979,34 @@ document.getElementById('product-modal-overlay').addEventListener('click', (e) =
   if(e.target.id === 'product-modal-overlay') closeProductModal();
 });
 document.getElementById('p-image-url').addEventListener('input', (e) => {
-  uploadedImageData = null;
   document.getElementById('photo-preview').src = e.target.value;
 });
-document.getElementById('p-image-file').addEventListener('change', (e) => {
+document.getElementById('p-image-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    uploadedImageData = ev.target.result;
-    document.getElementById('photo-preview').src = uploadedImageData;
-    document.getElementById('p-image-url').value = '';
-  };
-  reader.readAsDataURL(file);
+  const statusEl = document.getElementById('upload-status');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Compressing & uploading...';
+  try{
+    const blob = await compressImage(file);
+    const url = await uploadProductImage(blob);
+    document.getElementById('p-image-url').value = url;
+    document.getElementById('photo-preview').src = url;
+    statusEl.textContent = 'Uploaded.';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+  }catch(err){
+    statusEl.textContent = err.message;
+  }finally{
+    document.getElementById('p-image-file').value = '';
+  }
 });
-document.getElementById('product-modal-save').addEventListener('click', async () => {
+document.getElementById('product-modal-save').addEventListener('click', async (e) => {
   const name = document.getElementById('p-name').value.trim();
   const price = parseFloat(document.getElementById('p-price').value);
-  if(!name || isNaN(price)){ alert('Name and price are required.'); return; }
+  if(!name || isNaN(price)){ await showAlert('Name and price are required.'); return; }
 
   const badge = document.getElementById('p-badge').value;
-  const image = uploadedImageData || document.getElementById('p-image-url').value.trim();
+  const image = document.getElementById('p-image-url').value.trim();
 
   const data = {
     name,
@@ -818,21 +1021,23 @@ document.getElementById('product-modal-save').addEventListener('click', async ()
     stripe_link: document.getElementById('p-stripe-link').value.trim()
   };
 
-  try{
-    if(editingProductId){
-      await sbPatch(`products?id=eq.${editingProductId}`, data);
-    }else{
-      data.sort_order = PRODUCTS.length > 0 ? Math.max(...PRODUCTS.map(p => p.sort_order || 0)) + 1 : 0;
-      await sbPost('products', data);
+  await withLoadingState(e.currentTarget, 'Saving...', async () => {
+    try{
+      if(editingProductId){
+        await sbPatch(`products?id=eq.${editingProductId}`, data);
+      }else{
+        data.sort_order = PRODUCTS.length > 0 ? Math.max(...PRODUCTS.map(p => p.sort_order || 0)) + 1 : 0;
+        await sbPost('products', data);
+      }
+      await loadProducts();
+      renderProducts();
+      populateLogSaleSelect();
+      closeProductModal();
+      showToast('Product saved');
+    }catch(e){
+      await showAlert('Could not save product: ' + e.message);
     }
-    await loadProducts();
-    renderProducts();
-    populateLogSaleSelect();
-    closeProductModal();
-    showToast('Product saved');
-  }catch(e){
-    alert('Could not save product: ' + e.message);
-  }
+  });
 });
 
 /* ================= STRIPE ================= */
@@ -863,7 +1068,7 @@ function populateSettingsForm(){
   document.getElementById('s-footerDescription').value = (SETTINGS.footer || {}).description || '';
 }
 
-document.getElementById('save-settings-btn').addEventListener('click', async () => {
+document.getElementById('save-settings-btn').addEventListener('click', async (e) => {
   SETTINGS.brandName = document.getElementById('s-brandName').value.trim();
   SETTINGS.contactEmail = document.getElementById('s-contactEmail').value.trim();
   SETTINGS.instagramHandle = document.getElementById('s-instagramHandle').value.trim();
@@ -880,23 +1085,27 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
     description: document.getElementById('s-footerDescription').value.trim()
   };
 
-  try{
-    await saveSettingsToSupabase();
-    showToast('Settings saved');
-  }catch(e){
-    alert('Could not save settings: ' + e.message);
-  }
+  await withLoadingState(e.currentTarget, 'Saving...', async () => {
+    try{
+      await saveSettingsToSupabase();
+      showToast('Settings saved');
+    }catch(err){
+      await showAlert('Could not save settings: ' + err.message);
+    }
+  });
 });
 
-document.getElementById('change-password-btn').addEventListener('click', async () => {
+document.getElementById('change-password-btn').addEventListener('click', async (e) => {
   const current = document.getElementById('s-currentPassword').value;
   const next = document.getElementById('s-newPassword').value;
   const confirm2 = document.getElementById('s-confirmPassword').value;
-  if(!next || next.length < 6){ alert('New password must be at least 6 characters.'); return; }
-  if(next !== confirm2){ alert('New password and confirmation do not match.'); return; }
+  if(!next || next.length < 6){ await showAlert('New password must be at least 6 characters.'); return; }
+  if(next !== confirm2){ await showAlert('New password and confirmation do not match.'); return; }
+
+  await withLoadingState(e.currentTarget, 'Changing...', async () => {
 
   const verified = await signIn(ADMIN_EMAIL, current);
-  if(!verified){ alert('Current password is incorrect.'); return; }
+  if(!verified){ await showAlert('Current password is incorrect.'); return; }
 
   try{
     const res = await fetch(`${SB_URL}/auth/v1/user`, {
@@ -912,8 +1121,9 @@ document.getElementById('change-password-btn').addEventListener('click', async (
     document.getElementById('s-confirmPassword').value = '';
     showToast('Password changed');
   }catch(e){
-    alert('Could not change password: ' + e.message);
+    await showAlert('Could not change password: ' + e.message);
   }
+  });
 });
 
 /* ================= INIT ================= */

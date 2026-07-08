@@ -101,9 +101,43 @@
     font-size:0.7rem;
   }
   #cart-toggle:hover #cart-count{ background:var(--white); color:var(--black); }
+  .nav-right{ display:flex; align-items:center; gap:1rem; }
+  .hamburger{
+    display:none; flex-direction:column; justify-content:center; gap:5px;
+    width:32px; height:32px; padding:0;
+  }
+  .hamburger span{ display:block; height:3px; width:100%; background:var(--black); }
   @media (max-width:860px){
     .nav-links{ display:none; }
     .nav-brand span{ font-size:0.85rem; }
+    .hamburger{ display:flex; }
+  }
+  @media (max-width:480px){
+    nav#main-nav{ padding:0.7rem 1rem; }
+    .nav-brand span{ display:none; }
+  }
+
+  /* ---------- MOBILE MENU ---------- */
+  #mobile-menu-overlay{
+    position:fixed; inset:0; background:rgba(10,10,10,0.5);
+    z-index:1400; opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+  }
+  #mobile-menu-overlay.open{ opacity:1; pointer-events:auto; }
+  #mobile-menu{
+    position:fixed; top:0; right:0; height:100%; width:min(320px, 80vw);
+    background:var(--white); border-left:3px solid var(--black);
+    z-index:1500; transform:translateX(100%); transition:transform 0.3s ease;
+    display:flex; flex-direction:column;
+  }
+  #mobile-menu.open{ transform:translateX(0); }
+  #mobile-menu-header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:1.5rem; border-bottom:3px solid var(--black);
+  }
+  #mobile-menu-close{ font-size:1.6rem; line-height:1; }
+  #mobile-menu-links{ display:flex; flex-direction:column; padding:2rem 1.5rem; gap:2rem; }
+  #mobile-menu-links a{
+    text-transform:uppercase; letter-spacing:0.14em; font-size:1.15rem;
   }
 
   /* ---------- SHOP HEADER ---------- */
@@ -190,6 +224,9 @@
   }
   .card-media:hover .quick-add{ transform:translateY(0); }
   .quick-add:hover{ background:var(--off-white); color:var(--black); }
+  @media (hover: none), (max-width:860px){
+    .quick-add{ transform:translateY(0); }
+  }
   .card-info{ padding:1rem 1.1rem 1.25rem; flex:1; display:flex; flex-direction:column; gap:0.35rem; }
   .card-name{ text-transform:uppercase; font-size:0.95rem; letter-spacing:0.04em; }
   .card-sub{ color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; font-size:0.7rem; }
@@ -301,6 +338,21 @@
   }
   #cart-checkout:hover{ background:var(--off-white); color:var(--black); border:1px solid var(--black); }
   #cart-checkout:disabled{ opacity:0.4; cursor:not-allowed; }
+  #cart-checkout-note{
+    display:none; font-size:0.78rem; color:var(--muted); line-height:1.5;
+    margin-bottom:0.85rem;
+  }
+  #cart-checkout-note.show{ display:block; }
+  .secure-note{
+    text-align:center; font-size:0.7rem; color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.08em; margin-top:0.85rem;
+  }
+  .cart-item-checkout{
+    border:2px solid var(--black); padding:0.4rem 0.9rem; margin-top:0.6rem;
+    text-transform:uppercase; letter-spacing:0.1em; font-size:0.68rem;
+  }
+  .cart-item-checkout:hover{ background:var(--black); color:var(--white); }
+  .cart-item-checkout:disabled{ opacity:0.35; cursor:not-allowed; }
 
   /* ---------- PRODUCT MODAL ---------- */
   #product-modal-overlay{
@@ -315,7 +367,9 @@
     position:relative;
   }
   @media (max-width:760px){
-    #product-modal{ grid-template-columns:1fr; }
+    #product-modal{ display:block; }
+    #modal-image{ aspect-ratio:auto; height:38vh; width:100%; }
+    #modal-details{ padding:1.75rem; }
   }
   #modal-close{
     position:absolute; top:1rem; right:1rem; font-size:1.6rem; z-index:2;
@@ -369,12 +423,30 @@
       <a href="#instagram">Instagram</a>
       <a href="#contact">Contact</a>
     </div>
-    <button id="cart-toggle">
-      <span>Cart</span>
-      <span id="cart-count">0</span>
-    </button>
+    <div class="nav-right">
+      <button id="cart-toggle">
+        <span>Cart</span>
+        <span id="cart-count">0</span>
+      </button>
+      <button class="hamburger" id="hamburger-toggle" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </nav>
 </header>
+
+<div id="mobile-menu-overlay"></div>
+<div id="mobile-menu">
+  <div id="mobile-menu-header">
+    <span class="label">Menu</span>
+    <button id="mobile-menu-close" aria-label="Close menu">&times;</button>
+  </div>
+  <div id="mobile-menu-links">
+    <a href="#shop">Shop</a>
+    <a href="#instagram">Instagram</a>
+    <a href="#contact">Contact</a>
+  </div>
+</div>
 
 <main>
   <section id="shop-header">
@@ -448,7 +520,9 @@
   <div id="cart-items"></div>
   <div id="cart-footer">
     <div id="cart-subtotal"><span>Subtotal</span><span id="cart-subtotal-amount">$0.00</span></div>
+    <p id="cart-checkout-note">Your bag has items from different products — use the Checkout button on each item below, since each product is purchased separately.</p>
     <button id="cart-checkout" class="btn-primary" disabled>Checkout</button>
+    <p class="secure-note">Secure checkout via Stripe — you'll complete your purchase on Stripe's site.</p>
   </div>
 </aside>
 
@@ -469,6 +543,7 @@
       <div id="modal-actions">
         <button class="btn-secondary" id="modal-add-bag">Add to Bag</button>
         <button class="btn-primary" id="modal-buy-now">Buy Now</button>
+        <p class="secure-note" style="margin-top:0;">Secure checkout via Stripe — you'll complete your purchase on Stripe's site.</p>
       </div>
     </div>
   </div>
@@ -574,14 +649,27 @@ function cartCount(){
 function cartSubtotal(){
   return cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
 }
+function cartUniqueLinks(){
+  return [...new Set(cart.map(i => i.stripe_link).filter(Boolean))];
+}
+function checkoutLink(link){
+  if(link) window.open(link, '_blank', 'noopener');
+}
 function renderCart(){
   document.getElementById('cart-count').textContent = cartCount();
   const itemsEl = document.getElementById('cart-items');
   const checkoutBtn = document.getElementById('cart-checkout');
+  const noteEl = document.getElementById('cart-checkout-note');
+
   if(cart.length === 0){
     itemsEl.innerHTML = '<div id="cart-empty">Your bag is empty</div>';
     checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Checkout';
+    noteEl.classList.remove('show');
   }else{
+    const uniqueLinks = cartUniqueLinks();
+    const multiProduct = uniqueLinks.length > 1;
+
     itemsEl.innerHTML = cart.map((item, idx) => `
       <div class="cart-item">
         <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">
@@ -596,11 +684,21 @@ function renderCart(){
             </div>
             <span>$${(item.price * item.qty).toFixed(2)}</span>
           </div>
+          ${multiProduct ? `<button class="cart-item-checkout" onclick="checkoutLink('${escapeHtml(item.stripe_link || '').replace(/'/g, "\\'")}')" ${!item.stripe_link ? 'disabled' : ''}>Checkout This Item</button>` : ''}
           <button class="cart-remove" onclick="removeFromCart(${idx})">Remove</button>
         </div>
       </div>
     `).join('');
-    checkoutBtn.disabled = false;
+
+    if(multiProduct){
+      checkoutBtn.disabled = true;
+      checkoutBtn.textContent = 'Checkout Each Item Below';
+      noteEl.classList.add('show');
+    }else{
+      checkoutBtn.disabled = !uniqueLinks[0];
+      checkoutBtn.textContent = 'Checkout';
+      noteEl.classList.remove('show');
+    }
   }
   document.getElementById('cart-subtotal-amount').textContent = `$${cartSubtotal().toFixed(2)}`;
 }
@@ -773,6 +871,18 @@ function closeProductModal(){
 document.getElementById('cart-toggle').addEventListener('click', openCart);
 document.getElementById('cart-close').addEventListener('click', closeCart);
 document.getElementById('cart-overlay').addEventListener('click', closeCart);
+function openMobileMenu(){
+  document.getElementById('mobile-menu').classList.add('open');
+  document.getElementById('mobile-menu-overlay').classList.add('open');
+}
+function closeMobileMenu(){
+  document.getElementById('mobile-menu').classList.remove('open');
+  document.getElementById('mobile-menu-overlay').classList.remove('open');
+}
+document.getElementById('hamburger-toggle').addEventListener('click', openMobileMenu);
+document.getElementById('mobile-menu-close').addEventListener('click', closeMobileMenu);
+document.getElementById('mobile-menu-overlay').addEventListener('click', closeMobileMenu);
+document.querySelectorAll('#mobile-menu-links a').forEach(a => a.addEventListener('click', closeMobileMenu));
 document.getElementById('modal-close').addEventListener('click', closeProductModal);
 document.getElementById('product-modal-overlay').addEventListener('click', (e) => {
   if(e.target.id === 'product-modal-overlay') closeProductModal();
@@ -789,8 +899,8 @@ document.getElementById('modal-buy-now').addEventListener('click', () => {
 });
 document.getElementById('cart-checkout').addEventListener('click', () => {
   if(cart.length === 0) return;
-  const link = cart[0].stripe_link;
-  if(link) window.open(link, '_blank', 'noopener');
+  const uniqueLinks = cartUniqueLinks();
+  if(uniqueLinks.length === 1) checkoutLink(uniqueLinks[0]);
 });
 document.getElementById('filters').addEventListener('click', (e) => {
   const btn = e.target.closest('.filter-btn');
