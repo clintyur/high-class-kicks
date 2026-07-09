@@ -356,7 +356,24 @@
         <div class="list-row"><span>2. Go to Payment Links → Create a new payment link.</span></div>
         <div class="list-row"><span>3. Add the product, price, and any options (e.g. shipping).</span></div>
         <div class="list-row"><span>4. Click Create Link, then copy the generated URL.</span></div>
-        <div class="list-row" style="border-bottom:none;"><span>5. Paste that URL into the product's "Stripe Payment Link" field in the Products tab.</span></div>
+        <div class="list-row"><span>5. Paste that URL into the product's "Stripe Payment Link" field in the Products tab.</span></div>
+        <div class="list-row" style="border-bottom:none;"><span>Every product needs its own Payment Link — there's no way to auto-generate these from here.</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>Important: Size &amp; Quantity Aren't Sent to Stripe</h3>
+        <p class="footer-note" style="margin-top:0;">
+          Payment Links are simple fixed-price links — the size a customer picks and the quantity they set in the bag on this site are <strong>not</strong> passed through to Stripe automatically. Two ways to handle it:
+        </p>
+        <div class="list-row"><span>• In the Payment Link editor, enable "Adjustable quantity" if you want customers able to change quantity on Stripe's page too (otherwise it defaults to 1).</span></div>
+        <div class="list-row" style="border-bottom:none;"><span>• Add a custom field (Stripe calls it "Additional information to collect") labeled "Size" so customers re-enter their size during checkout — otherwise you won't know what size to ship.</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>No Automatic Order Sync</h3>
+        <p class="footer-note" style="margin-top:0; margin-bottom:0;">
+          This site has no server, so it can't automatically detect when a Stripe payment completes. Revenue on the Dashboard is tracked by manually logging each sale — see "Log a Sale" on the Dashboard tab.
+        </p>
       </div>
     </section>
 

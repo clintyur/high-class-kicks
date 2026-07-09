@@ -1019,10 +1019,11 @@ function openProductModal(id){
 
   const addBtn = document.getElementById('modal-add-bag');
   const buyBtn = document.getElementById('modal-buy-now');
+  const noLink = !product.stripe_link;
   addBtn.disabled = soldOut || sizes.length > 0;
-  buyBtn.disabled = soldOut;
+  buyBtn.disabled = soldOut || noLink;
   addBtn.textContent = soldOut ? 'Sold Out' : 'Add to Bag';
-  buyBtn.textContent = soldOut ? 'Sold Out' : 'Buy Now';
+  buyBtn.textContent = soldOut ? 'Sold Out' : (noLink ? 'Checkout Unavailable' : 'Buy Now');
 
   document.getElementById('product-modal-overlay').classList.add('open');
 }
