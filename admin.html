@@ -300,7 +300,7 @@
 
       <div class="panel">
         <h3>Log a Sale</h3>
-        <p class="footer-note" style="margin-top:0;">No payment webhook is connected, so log sales manually here to track revenue on this dashboard.</p>
+        <p class="footer-note" style="margin-top:0;">Stripe orders sync here automatically once the webhook is set up. Use this to also log cash, DM, or in-person sales.</p>
         <div class="log-sale-form">
           <select id="log-sale-product"></select>
           <input type="number" id="log-sale-amount" placeholder="Amount" step="0.01" min="0">
@@ -370,9 +370,9 @@
       </div>
 
       <div class="panel">
-        <h3>No Automatic Order Sync</h3>
+        <h3>Automatic Order Sync</h3>
         <p class="footer-note" style="margin-top:0; margin-bottom:0;">
-          This site has no server, so it can't automatically detect when a Stripe payment completes. Revenue on the Dashboard is tracked by manually logging each sale — see "Log a Sale" on the Dashboard tab.
+          Once the stripe-webhook function is deployed (a one-time developer setup) and its URL is registered as a webhook in your Stripe Dashboard, completed Stripe payments show up automatically in "Recent Orders" and revenue totals on the Dashboard tab — tagged "(stripe)". Until then, or for cash/DM/in-person sales, use "Log a Sale" to add them manually.
         </p>
       </div>
     </section>
@@ -833,7 +833,17 @@ async function loadProducts(){
 
 /* ================= DASHBOARD ================= */
 async function renderDashboard(){
-  const log = SETTINGS.revenueLog || [];
+  const manualLog = (SETTINGS.revenueLog || []).map(e => ({ product: e.product, amount: e.amount, date: e.date, source: 'manual' }));
+
+  let autoOrders = [];
+  try{
+    const orders = await sbGet('orders?select=*&order=created_at.desc');
+    autoOrders = orders.map(o => ({ product: o.product_name, amount: o.amount, date: o.created_at.slice(0,10), source: 'stripe' }));
+  }catch(e){
+    console.warn('Orders load failed (this is expected until the stripe-webhook function is deployed).', e);
+  }
+
+  const log = [...manualLog, ...autoOrders];
   const now = new Date();
   const todayStr = now.toISOString().slice(0,10);
   const monthStr = now.toISOString().slice(0,7);
@@ -909,7 +919,7 @@ function renderRecentOrders(log){
     return;
   }
   el.innerHTML = sorted.map(e => `
-    <div class="list-row"><span>${escapeHtml(e.product)} — ${e.date}</span><span>${currency(e.amount)}</span></div>
+    <div class="list-row"><span>${escapeHtml(e.product)} — ${e.date}${e.source === 'stripe' ? ' <span class="label">(stripe)</span>' : ''}</span><span>${currency(e.amount)}</span></div>
   `).join('');
 }
 
