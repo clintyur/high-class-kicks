@@ -437,8 +437,17 @@
     background:var(--white); border:2px solid var(--black);
   }
   #modal-close:hover{ background:var(--black); color:var(--white); }
+  #modal-image-col{ display:flex; flex-direction:column; }
   #modal-image{ background:var(--paper); aspect-ratio:3/4; overflow:hidden; }
   #modal-image img{ width:100%; height:100%; object-fit:cover; }
+  #modal-thumbs{ display:flex; gap:0.5rem; padding:0.75rem; flex-wrap:wrap; }
+  #modal-thumbs:empty{ display:none; }
+  #modal-thumbs img{
+    width:52px; height:68px; object-fit:cover; border:2px solid var(--black);
+    cursor:pointer; opacity:0.5; flex-shrink:0;
+  }
+  #modal-thumbs img.active{ opacity:1; }
+  #modal-thumbs img:hover{ opacity:0.85; }
   #modal-details{ padding:2.5rem; display:flex; flex-direction:column; }
   #modal-name{ text-transform:uppercase; font-size:1.6rem; letter-spacing:0.03em; }
   #modal-sub{ color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; font-size:0.78rem; margin-top:0.4rem; }
@@ -617,7 +626,10 @@
 <div id="product-modal-overlay">
   <div id="product-modal">
     <button id="modal-close">&times;</button>
-    <div id="modal-image"><img id="modal-image-img" src="" alt=""></div>
+    <div id="modal-image-col">
+      <div id="modal-image"><img id="modal-image-img" src="" alt=""></div>
+      <div id="modal-thumbs"></div>
+    </div>
     <div id="modal-details">
       <span class="label" id="modal-badge"></span>
       <h2 id="modal-name"></h2>
@@ -1000,8 +1012,10 @@ function openProductModal(id){
 
   const soldOut = product.sold_out || product.badge === 'Sold Out';
 
-  document.getElementById('modal-image-img').src = product.image;
+  const galleryImages = (product.images && product.images.length) ? product.images : (product.image ? [product.image] : []);
+  document.getElementById('modal-image-img').src = galleryImages[0] || '';
   document.getElementById('modal-image-img').alt = product.name;
+  renderModalThumbs(galleryImages, product.name);
   document.getElementById('modal-badge').textContent = product.badge || '';
   document.getElementById('modal-name').textContent = product.name;
   document.getElementById('modal-sub').textContent = product.sub || '';
@@ -1028,6 +1042,22 @@ function openProductModal(id){
   buyBtn.textContent = soldOut ? 'Sold Out' : (noLink ? 'Checkout Unavailable' : 'Buy Now');
 
   document.getElementById('product-modal-overlay').classList.add('open');
+}
+function renderModalThumbs(images, name){
+  const el = document.getElementById('modal-thumbs');
+  if(images.length < 2){
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = images.map((url, i) => `
+    <img src="${escapeHtml(url)}" alt="${escapeHtml(name)} photo ${i + 1}" class="${i === 0 ? 'active' : ''}" onclick="setModalImage(${i}, this)">
+  `).join('');
+}
+function setModalImage(index, thumbEl){
+  const galleryImages = (activeProduct.images && activeProduct.images.length) ? activeProduct.images : (activeProduct.image ? [activeProduct.image] : []);
+  document.getElementById('modal-image-img').src = galleryImages[index];
+  document.querySelectorAll('#modal-thumbs img').forEach(img => img.classList.remove('active'));
+  thumbEl.classList.add('active');
 }
 function selectSize(size){
   activeSize = size;

@@ -138,9 +138,44 @@
   .modal-box-close:hover{ background:var(--black); color:var(--white); }
   .modal-box h2{ font-size:1.25rem; margin-bottom:1.5rem; }
   .photo-input-row{ display:flex; gap:1rem; align-items:flex-start; margin-bottom:1.25rem; }
-  #photo-preview{ width:100px; height:130px; border:3px solid var(--black); background:var(--paper); object-fit:cover; flex-shrink:0; }
+  #closed-bg-preview{ width:100px; height:130px; border:3px solid var(--black); background:var(--paper); object-fit:cover; flex-shrink:0; }
   .modal-actions{ display:flex; gap:1rem; margin-top:2rem; }
   .modal-actions .btn{ flex:1; }
+
+  #photo-gallery{
+    display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;
+  }
+  .photo-thumb{
+    position:relative; width:90px; height:117px; border:3px solid var(--black);
+    background:var(--paper); flex-shrink:0;
+  }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-thumb-cover-badge{
+    position:absolute; top:0; left:0; background:var(--black); color:var(--white);
+    font-size:0.6rem; text-transform:uppercase; letter-spacing:0.06em; padding:0.15rem 0.4rem;
+  }
+  .photo-thumb-actions{
+    position:absolute; bottom:0; left:0; right:0; display:flex;
+    background:rgba(10,10,10,0.75);
+  }
+  .photo-thumb-actions button{
+    flex:1; background:none; border:none; color:var(--white); padding:0.3rem 0;
+    font-size:0.8rem; line-height:1;
+  }
+  .photo-thumb-actions button:disabled{ opacity:0.3; cursor:not-allowed; }
+  .photo-thumb-actions button:hover:not(:disabled){ background:rgba(255,255,255,0.15); }
+  #photo-gallery-empty{
+    color:var(--muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.08em;
+    border:2px dashed var(--muted); padding:1.5rem; text-align:center; width:100%;
+  }
+  .photo-add-row{ display:flex; gap:0.75rem; flex-wrap:wrap; }
+  .photo-add-row label.btn{ flex-shrink:0; cursor:pointer; }
+  .photo-add-row input[type="text"]{
+    flex:1; min-width:180px; border:3px solid var(--black); padding:0.7rem 0.8rem; font-size:0.9rem;
+  }
+  @media (max-width:480px){
+    .photo-add-row input[type="text"]{ min-width:100%; }
+  }
 
   /* ---------- SETTINGS ---------- */
   .settings-section{ border:3px solid var(--black); padding:1.75rem; margin-bottom:2rem; }
@@ -206,7 +241,8 @@
     .field-row{ grid-template-columns:1fr; }
     .modal-box{ padding:1.5rem; max-height:85vh; }
     .photo-input-row{ flex-direction:column; }
-    #photo-preview{ width:100%; height:auto; aspect-ratio:3/4; max-width:180px; }
+    #closed-bg-preview{ width:100%; height:auto; aspect-ratio:3/4; max-width:180px; }
+    .photo-thumb{ width:78px; height:101px; }
     input[type="file"]{ max-width:100%; }
   }
 </style>
@@ -467,16 +503,17 @@
     <h2 id="product-modal-title">Add Product</h2>
     <input type="hidden" id="p-id">
 
-    <div class="photo-input-row">
-      <img id="photo-preview" src="" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27130%27%3E%3Crect width=%27100%25%27 height=%27100%25%27 fill=%27%23e8e4db%27/%3E%3C/svg%3E'">
-      <div style="flex:1;">
-        <div class="field"><label>Paste Image URL</label><input type="text" id="p-image-url" placeholder="https://..."></div>
-        <div class="field">
-          <label>Or Upload Photo</label>
-          <input type="file" id="p-image-file" accept="image/*">
-          <span id="upload-status" class="footer-note" style="display:none; margin-top:0.5rem; margin-bottom:0;"></span>
-        </div>
+    <div class="field">
+      <label>Product Photos</label>
+      <div id="photo-gallery"></div>
+      <div class="photo-add-row">
+        <label class="btn" style="text-align:center;">
+          + Upload Photos
+          <input type="file" id="p-image-files" accept="image/*" multiple style="display:none;">
+        </label>
+        <input type="text" id="p-image-url-add" placeholder="Or paste an image URL, press Enter">
       </div>
+      <span id="upload-status" class="footer-note" style="display:none; margin-top:0.5rem; margin-bottom:0;"></span>
     </div>
 
     <div class="field"><label>Name</label><input type="text" id="p-name"></div>
@@ -621,6 +658,36 @@ async function uploadProductImage(blob){
   return `${SB_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
 }
 
+/* ================= PHOTO GALLERY (multi-image per product) ================= */
+function renderPhotoGallery(){
+  const el = document.getElementById('photo-gallery');
+  if(currentImages.length === 0){
+    el.innerHTML = '<div id="photo-gallery-empty">No photos yet — upload or paste a URL below</div>';
+    return;
+  }
+  el.innerHTML = currentImages.map((url, i) => `
+    <div class="photo-thumb">
+      ${i === 0 ? '<span class="photo-thumb-cover-badge">Cover</span>' : ''}
+      <img src="${escapeHtml(url)}" alt="Product photo ${i + 1}">
+      <div class="photo-thumb-actions">
+        <button onclick="moveProductImage(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Move left">‹</button>
+        <button onclick="removeProductImage(${i})" title="Remove">×</button>
+        <button onclick="moveProductImage(${i}, 1)" ${i === currentImages.length - 1 ? 'disabled' : ''} title="Move right">›</button>
+      </div>
+    </div>
+  `).join('');
+}
+window.moveProductImage = function(index, dir){
+  const target = index + dir;
+  if(target < 0 || target >= currentImages.length) return;
+  [currentImages[index], currentImages[target]] = [currentImages[target], currentImages[index]];
+  renderPhotoGallery();
+};
+window.removeProductImage = function(index){
+  currentImages.splice(index, 1);
+  renderPhotoGallery();
+};
+
 /* ================= DEFAULTS ================= */
 const DEFAULT_SETTINGS = {
   siteOpen: true,
@@ -652,6 +719,7 @@ const DEFAULT_SETTINGS = {
 let SETTINGS = null;
 let PRODUCTS = [];
 let editingProductId = null;
+let currentImages = [];
 let ADMIN_SESSION = null;
 try{ ADMIN_SESSION = JSON.parse(sessionStorage.getItem('hck_admin_session')); }catch(e){ ADMIN_SESSION = null; }
 
@@ -1004,11 +1072,12 @@ function closeProductModal(){
 }
 document.getElementById('add-product-btn').addEventListener('click', () => {
   editingProductId = null;
+  currentImages = [];
+  renderPhotoGallery();
   document.getElementById('product-modal-title').textContent = 'Add Product';
   document.getElementById('p-id').value = '';
-  document.getElementById('p-image-url').value = '';
-  document.getElementById('p-image-file').value = '';
-  document.getElementById('photo-preview').src = '';
+  document.getElementById('p-image-url-add').value = '';
+  document.getElementById('p-image-files').value = '';
   document.getElementById('p-name').value = '';
   document.getElementById('p-sub').value = '';
   document.getElementById('p-price').value = '';
@@ -1023,11 +1092,12 @@ window.editProduct = function(id){
   const p = PRODUCTS.find(x => x.id === id);
   if(!p) return;
   editingProductId = id;
+  currentImages = (p.images && p.images.length) ? [...p.images] : (p.image ? [p.image] : []);
+  renderPhotoGallery();
   document.getElementById('product-modal-title').textContent = 'Edit Product';
   document.getElementById('p-id').value = p.id;
-  document.getElementById('p-image-url').value = p.image || '';
-  document.getElementById('p-image-file').value = '';
-  document.getElementById('photo-preview').src = p.image || '';
+  document.getElementById('p-image-url-add').value = '';
+  document.getElementById('p-image-files').value = '';
   document.getElementById('p-name').value = p.name || '';
   document.getElementById('p-sub').value = p.sub || '';
   document.getElementById('p-price').value = p.price || '';
@@ -1058,8 +1128,15 @@ document.getElementById('product-modal-cancel').addEventListener('click', closeP
 document.getElementById('product-modal-overlay').addEventListener('click', (e) => {
   if(e.target.id === 'product-modal-overlay') closeProductModal();
 });
-document.getElementById('p-image-url').addEventListener('input', (e) => {
-  document.getElementById('photo-preview').src = e.target.value;
+document.getElementById('p-image-url-add').addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const input = e.target;
+  const url = input.value.trim();
+  if(!url) return;
+  currentImages.push(url);
+  renderPhotoGallery();
+  input.value = '';
 });
 document.getElementById('s-closedBgUrl').addEventListener('input', (e) => {
   document.getElementById('closed-bg-preview').src = e.target.value;
@@ -1083,24 +1160,29 @@ document.getElementById('s-closedBgFile').addEventListener('change', async (e) =
     document.getElementById('s-closedBgFile').value = '';
   }
 });
-document.getElementById('p-image-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
+document.getElementById('p-image-files').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if(files.length === 0) return;
   const statusEl = document.getElementById('upload-status');
   statusEl.style.display = 'block';
-  statusEl.textContent = 'Compressing & uploading...';
-  try{
-    const blob = await compressImage(file);
-    const url = await uploadProductImage(blob);
-    document.getElementById('p-image-url').value = url;
-    document.getElementById('photo-preview').src = url;
-    statusEl.textContent = 'Uploaded.';
-    setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
-  }catch(err){
-    statusEl.textContent = err.message;
-  }finally{
-    document.getElementById('p-image-file').value = '';
+  let uploaded = 0;
+  for(const file of files){
+    statusEl.textContent = `Uploading ${uploaded + 1} of ${files.length}...`;
+    try{
+      const blob = await compressImage(file);
+      const url = await uploadProductImage(blob);
+      currentImages.push(url);
+      renderPhotoGallery();
+      uploaded++;
+    }catch(err){
+      statusEl.textContent = err.message;
+      document.getElementById('p-image-files').value = '';
+      return;
+    }
   }
+  statusEl.textContent = `Uploaded ${uploaded} photo${uploaded === 1 ? '' : 's'}.`;
+  setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+  document.getElementById('p-image-files').value = '';
 });
 document.getElementById('product-modal-save').addEventListener('click', async (e) => {
   const name = document.getElementById('p-name').value.trim();
@@ -1108,7 +1190,6 @@ document.getElementById('product-modal-save').addEventListener('click', async (e
   if(!name || isNaN(price)){ await showAlert('Name and price are required.'); return; }
 
   const badge = document.getElementById('p-badge').value;
-  const image = document.getElementById('p-image-url').value.trim();
 
   const data = {
     name,
@@ -1118,7 +1199,8 @@ document.getElementById('product-modal-save').addEventListener('click', async (e
     category: document.getElementById('p-category').value,
     badge: badge || null,
     sold_out: badge === 'Sold Out',
-    image,
+    image: currentImages[0] || '',
+    images: currentImages,
     description: document.getElementById('p-description').value.trim(),
     stripe_link: document.getElementById('p-stripe-link').value.trim()
   };

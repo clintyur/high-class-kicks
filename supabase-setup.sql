@@ -10,6 +10,7 @@ create table products (
   badge text,
   sold_out boolean default false,
   image text,
+  images jsonb default '[]'::jsonb,
   description text,
   stripe_link text,
   sort_order int default 0,
