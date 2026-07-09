@@ -32,12 +32,26 @@ create table signups (
   created_at timestamptz default now()
 );
 
+-- Written only by the stripe-webhook Edge Function using the service_role
+-- key, which bypasses RLS entirely — so there is no insert policy here on
+-- purpose. Nothing client-side (anon or authenticated) can create fake orders.
+create table orders (
+  id bigint generated always as identity primary key,
+  stripe_session_id text unique,
+  product_name text,
+  amount numeric,
+  currency text default 'usd',
+  customer_email text,
+  created_at timestamptz default now()
+);
+
 -- ============ ROW LEVEL SECURITY ============
 
 alter table products enable row level security;
 alter table settings enable row level security;
 alter table visits enable row level security;
 alter table signups enable row level security;
+alter table orders enable row level security;
 
 -- products: public read, logged-in admin write
 create policy "public read products" on products for select using (true);
@@ -57,3 +71,7 @@ create policy "admin read visits" on visits for select using (auth.role() = 'aut
 -- signups: anyone can submit their phone number, only the admin can read the list
 create policy "public insert signups" on signups for insert with check (true);
 create policy "admin read signups" on signups for select using (auth.role() = 'authenticated');
+
+-- orders: admin-only read. No insert policy — only the service_role key
+-- (used server-side by the stripe-webhook Edge Function) can write here.
+create policy "admin read orders" on orders for select using (auth.role() = 'authenticated');
