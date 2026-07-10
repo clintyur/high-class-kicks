@@ -667,13 +667,18 @@ async function sbGet(path){
   return res.json();
 }
 async function sbPost(path, data){
+  // No Prefer:return=representation here on purpose — this file only ever
+  // inserts into anon-write-only tables (visits, signups) that have no
+  // anon SELECT policy. Asking Postgres to return the inserted row would
+  // trigger the SELECT policy on the RETURNING clause and fail the whole
+  // insert, even though the insert itself is allowed.
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
     method:'POST',
-    headers:{ ...SB_HEADERS, Prefer:'return=representation' },
+    headers: SB_HEADERS,
     body: JSON.stringify(data)
   });
   if(!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
-  return res.json();
+  return true;
 }
 async function sbPatch(path, data){
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
