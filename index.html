@@ -488,13 +488,15 @@
       <div class="countdown-unit"><span id="cd-mins">00</span><small>Min</small></div>
       <div class="countdown-unit"><span id="cd-secs">00</span><small>Sec</small></div>
     </div>
-    <p id="coming-soon-offer"></p>
-    <form id="coming-soon-signup-form">
-      <input type="tel" id="coming-soon-phone" placeholder="Phone Number" required>
-      <button type="submit">Sign Up</button>
-    </form>
-    <p id="coming-soon-consent">By submitting, you agree to receive recurring marketing texts. Msg &amp; data rates may apply. Reply STOP to unsubscribe.</p>
-    <p id="coming-soon-signup-message"></p>
+    <div id="coming-soon-signup-block">
+      <p id="coming-soon-offer"></p>
+      <form id="coming-soon-signup-form">
+        <input type="tel" id="coming-soon-phone" placeholder="Phone Number" required>
+        <button type="submit">Sign Up</button>
+      </form>
+      <p id="coming-soon-consent">By submitting, you agree to receive recurring marketing texts. Msg &amp; data rates may apply. Reply STOP to unsubscribe.</p>
+      <p id="coming-soon-signup-message"></p>
+    </div>
     <button id="coming-soon-password-link">Enter using password</button>
     <div id="coming-soon-password-row">
       <input type="password" id="coming-soon-password-input" placeholder="Password">
@@ -695,6 +697,7 @@ const DEFAULT_SETTINGS = {
   previewPassword: '',
   closedHeadline: 'OPENING SOON',
   closedSubtext: 'OUR GREATEST RESTOCK YET',
+  signupFormEnabled: false,
   signupOfferText: 'Sign up with your phone number for 10% off your first order.',
   closedBgImage: '',
   brandName: 'High Class Kicks',
@@ -904,6 +907,7 @@ function renderComingSoon(){
   document.getElementById('coming-soon-headline').textContent = SETTINGS.closedHeadline || 'OPENING SOON';
   document.getElementById('coming-soon-subtext').textContent = SETTINGS.closedSubtext || '';
   document.getElementById('coming-soon-offer').textContent = SETTINGS.signupOfferText || '';
+  document.getElementById('coming-soon-signup-block').style.display = SETTINGS.signupFormEnabled === false ? 'none' : '';
   const bg = document.getElementById('coming-soon-bg');
   bg.style.backgroundImage = SETTINGS.closedBgImage ? `url("${SETTINGS.closedBgImage}")` : 'none';
 
