@@ -600,7 +600,7 @@
     <div>
       <h3>Connect</h3>
       <ul>
-        <li><a href="mailto:hello@highclasskicks.ca" id="footer-email">hello@highclasskicks.ca</a></li>
+        <li><a href="mailto:" id="footer-email" style="display:none;"></a></li>
         <li><a href="tel:" id="footer-phone" style="display:none;"></a></li>
         <li><a href="https://instagram.com/highclasskicks.ca" target="_blank" rel="noopener" id="footer-instagram">@highclasskicks.ca</a></li>
       </ul>
@@ -861,8 +861,14 @@ function applySettings(){
 
   document.getElementById('instagram-handle').textContent = SETTINGS.instagramHandle || '';
   document.getElementById('follow-btn').href = `https://instagram.com/${(SETTINGS.instagramHandle || '').replace('@','')}`;
-  document.getElementById('footer-email').textContent = SETTINGS.contactEmail || '';
-  document.getElementById('footer-email').href = `mailto:${SETTINGS.contactEmail || ''}`;
+  const footerEmail = document.getElementById('footer-email');
+  if(SETTINGS.contactEmail){
+    footerEmail.textContent = SETTINGS.contactEmail;
+    footerEmail.href = `mailto:${SETTINGS.contactEmail}`;
+    footerEmail.style.display = '';
+  }else{
+    footerEmail.style.display = 'none';
+  }
 
   const footerInstagram = document.getElementById('footer-instagram');
   footerInstagram.textContent = SETTINGS.instagramHandle || '';
