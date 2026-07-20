@@ -449,6 +449,7 @@
         <h3>Brand</h3>
         <div class="field"><label>Brand Name</label><input type="text" id="s-brandName"></div>
         <div class="field"><label>Contact Email</label><input type="email" id="s-contactEmail"></div>
+        <div class="field"><label>Contact Phone (leave blank to hide)</label><input type="tel" id="s-contactPhone" placeholder="e.g. (555) 123-4567"></div>
         <div class="field"><label>Instagram Handle</label><input type="text" id="s-instagramHandle"></div>
       </div>
 
@@ -703,6 +704,7 @@ const DEFAULT_SETTINGS = {
   seoTitle: 'High Class Kicks — Vintage, Hypebeast & Designer',
   seoDescription: 'Curated vintage, hypebeast, and designer shoes & clothing. Based in California. Shop the drop.',
   contactEmail: 'hello@highclasskicks.ca',
+  contactPhone: '',
   instagramHandle: '@highclasskicks.ca',
   bannerEnabled: true,
   bannerText: 'WELCOME TO HIGH CLASS KICKS — NEW DROPS WEEKLY',
@@ -1250,6 +1252,7 @@ function populateSettingsForm(){
   document.getElementById('closed-bg-preview').src = SETTINGS.closedBgImage || '';
   document.getElementById('s-brandName').value = SETTINGS.brandName || '';
   document.getElementById('s-contactEmail').value = SETTINGS.contactEmail || '';
+  document.getElementById('s-contactPhone').value = SETTINGS.contactPhone || '';
   document.getElementById('s-instagramHandle').value = SETTINGS.instagramHandle || '';
   document.getElementById('s-seoTitle').value = SETTINGS.seoTitle || '';
   document.getElementById('s-seoDescription').value = SETTINGS.seoDescription || '';
@@ -1274,6 +1277,7 @@ document.getElementById('save-settings-btn').addEventListener('click', async (e)
   SETTINGS.closedBgImage = document.getElementById('s-closedBgUrl').value.trim();
   SETTINGS.brandName = document.getElementById('s-brandName').value.trim();
   SETTINGS.contactEmail = document.getElementById('s-contactEmail').value.trim();
+  SETTINGS.contactPhone = document.getElementById('s-contactPhone').value.trim();
   SETTINGS.instagramHandle = document.getElementById('s-instagramHandle').value.trim();
   SETTINGS.seoTitle = document.getElementById('s-seoTitle').value.trim();
   SETTINGS.seoDescription = document.getElementById('s-seoDescription').value.trim();

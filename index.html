@@ -601,6 +601,7 @@
       <h3>Connect</h3>
       <ul>
         <li><a href="mailto:hello@highclasskicks.ca" id="footer-email">hello@highclasskicks.ca</a></li>
+        <li><a href="tel:" id="footer-phone" style="display:none;"></a></li>
       </ul>
     </div>
   </div>
@@ -709,6 +710,7 @@ const DEFAULT_SETTINGS = {
   seoTitle: 'High Class Kicks — Vintage, Hypebeast & Designer',
   seoDescription: 'Curated vintage, hypebeast, and designer shoes & clothing. Based in California. Shop the drop.',
   contactEmail: 'hello@highclasskicks.ca',
+  contactPhone: '',
   instagramHandle: '@highclasskicks.ca',
   bannerEnabled: true,
   bannerText: 'WELCOME TO HIGH CLASS KICKS — NEW DROPS WEEKLY',
@@ -860,6 +862,15 @@ function applySettings(){
   document.getElementById('follow-btn').href = `https://instagram.com/${(SETTINGS.instagramHandle || '').replace('@','')}`;
   document.getElementById('footer-email').textContent = SETTINGS.contactEmail || '';
   document.getElementById('footer-email').href = `mailto:${SETTINGS.contactEmail || ''}`;
+
+  const footerPhone = document.getElementById('footer-phone');
+  if(SETTINGS.contactPhone){
+    footerPhone.textContent = SETTINGS.contactPhone;
+    footerPhone.href = `tel:${SETTINGS.contactPhone.replace(/[^0-9+]/g, '')}`;
+    footerPhone.style.display = '';
+  }else{
+    footerPhone.style.display = 'none';
+  }
 
   const instaSection = document.getElementById('instagram');
   instaSection.style.display = SETTINGS.instagramEnabled === false ? 'none' : '';
