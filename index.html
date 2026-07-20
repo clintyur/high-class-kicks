@@ -116,8 +116,7 @@
     white-space:nowrap;
   }
   #announcement .marquee-track{
-    display:inline-block;
-    padding-left:100%;
+    display:inline-flex;
     animation:banner-scroll 22s linear infinite;
   }
   #announcement span{
@@ -126,10 +125,11 @@
     text-transform:uppercase;
     letter-spacing:0.14em;
     font-size:0.75rem;
+    white-space:nowrap;
   }
   @keyframes banner-scroll{
     0%{transform:translateX(0);}
-    100%{transform:translateX(-100%);}
+    100%{transform:translateX(-50%);}
   }
   nav#main-nav{
     display:flex; align-items:center; justify-content:space-between;
@@ -302,11 +302,11 @@
     border-bottom:3px solid var(--black);
   }
   #marquee .marquee-track{
-    display:inline-block; padding-left:100%;
+    display:inline-flex;
     animation:banner-scroll 18s linear infinite;
   }
   #marquee span{
-    display:inline-block; padding:1.4rem 2.5rem;
+    display:inline-block; padding:1.4rem 2.5rem; white-space:nowrap;
     text-transform:uppercase; letter-spacing:0.18em; font-size:1.4rem;
   }
 
