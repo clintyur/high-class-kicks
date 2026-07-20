@@ -602,6 +602,7 @@
       <ul>
         <li><a href="mailto:hello@highclasskicks.ca" id="footer-email">hello@highclasskicks.ca</a></li>
         <li><a href="tel:" id="footer-phone" style="display:none;"></a></li>
+        <li><a href="https://instagram.com/highclasskicks.ca" target="_blank" rel="noopener" id="footer-instagram">@highclasskicks.ca</a></li>
       </ul>
     </div>
   </div>
@@ -862,6 +863,10 @@ function applySettings(){
   document.getElementById('follow-btn').href = `https://instagram.com/${(SETTINGS.instagramHandle || '').replace('@','')}`;
   document.getElementById('footer-email').textContent = SETTINGS.contactEmail || '';
   document.getElementById('footer-email').href = `mailto:${SETTINGS.contactEmail || ''}`;
+
+  const footerInstagram = document.getElementById('footer-instagram');
+  footerInstagram.textContent = SETTINGS.instagramHandle || '';
+  footerInstagram.href = `https://instagram.com/${(SETTINGS.instagramHandle || '').replace('@','')}`;
 
   const footerPhone = document.getElementById('footer-phone');
   if(SETTINGS.contactPhone){
