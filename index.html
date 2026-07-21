@@ -294,6 +294,12 @@
   .card-price{ font-size:0.95rem; }
   .card-size{ color:var(--muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; }
   #product-empty{ padding:4rem 2rem; text-align:center; color:var(--muted); text-transform:uppercase; letter-spacing:0.14em; font-size:0.85rem; display:none; }
+  #load-more-btn{
+    display:none; margin:2.5rem auto; padding:1rem 2.5rem;
+    border:3px solid var(--black); background:var(--white); color:var(--black);
+    text-transform:uppercase; letter-spacing:0.14em; font-size:0.8rem;
+  }
+  #load-more-btn:hover{ background:var(--black); color:var(--white); }
 
   /* ---------- MARQUEE STRIP ---------- */
   #marquee{
@@ -554,18 +560,14 @@
       <span class="line-outline" id="headline-2">KICKS</span>
     </h1>
     <p class="tagline" id="tagline">Vintage. Hypebeast. Designer. Curated pieces for people who take their outfits seriously.</p>
-    <div class="filters" id="filters">
-      <button class="filter-btn active" data-filter="All">All</button>
-      <button class="filter-btn" data-filter="Shoes">Shoes</button>
-      <button class="filter-btn" data-filter="Clothing">Clothing</button>
-      <button class="filter-btn" data-filter="Other">Other</button>
-    </div>
+    <div class="filters" id="filters"></div>
     <div id="product-count">Showing 0 products</div>
   </section>
 
   <section id="shop">
     <div id="product-grid"></div>
     <div id="product-empty">No products found in this category yet.</div>
+    <button id="load-more-btn">Load More</button>
   </section>
 
   <div id="marquee">
@@ -726,9 +728,13 @@ const DEFAULT_SETTINGS = {
   gaId: ''
 };
 
+const CATEGORY_ORDER = ['Shoes', 'Clothing', 'Pants/Jeans', 'Shirts', 'Jackets', 'Belts', 'Jewelry', 'Other'];
+const PAGE_SIZE = 15;
+
 let SETTINGS = DEFAULT_SETTINGS;
 let PRODUCTS = [];
 let activeFilter = 'All';
+let visibleCount = PAGE_SIZE;
 let cart = [];
 let activeProduct = null;
 let activeSize = null;
@@ -994,22 +1000,37 @@ document.getElementById('coming-soon-password-submit').addEventListener('click',
   }
 });
 
+/* ================= RENDER: FILTERS ================= */
+function renderFilters(){
+  const present = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.category === cat));
+  const filtersEl = document.getElementById('filters');
+  filtersEl.innerHTML = ['All', ...present].map(cat => `
+    <button class="filter-btn${cat === activeFilter ? ' active' : ''}" data-filter="${escapeHtml(cat)}">${escapeHtml(cat)}</button>
+  `).join('');
+}
+
 /* ================= RENDER: PRODUCTS ================= */
 function renderProducts(){
   const grid = document.getElementById('product-grid');
   const empty = document.getElementById('product-empty');
+  const loadMoreBtn = document.getElementById('load-more-btn');
   const filtered = activeFilter === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === activeFilter);
+  const visible = filtered.slice(0, visibleCount);
 
-  document.getElementById('product-count').textContent = `Showing ${filtered.length} product${filtered.length === 1 ? '' : 's'}`;
+  document.getElementById('product-count').textContent = filtered.length === 0
+    ? 'Showing 0 products'
+    : `Showing ${visible.length} of ${filtered.length} product${filtered.length === 1 ? '' : 's'}`;
 
   if(filtered.length === 0){
     grid.innerHTML = '';
     empty.style.display = 'block';
+    loadMoreBtn.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
+  loadMoreBtn.style.display = visibleCount < filtered.length ? 'block' : 'none';
 
-  grid.innerHTML = filtered.map(p => {
+  grid.innerHTML = visible.map(p => {
     const soldOut = p.sold_out || p.badge === 'Sold Out';
     const badgeClass = soldOut ? 'card-badge sold-out' : 'card-badge';
     return `
@@ -1142,7 +1163,12 @@ document.getElementById('filters').addEventListener('click', (e) => {
   const btn = e.target.closest('.filter-btn');
   if(!btn) return;
   activeFilter = btn.dataset.filter;
+  visibleCount = PAGE_SIZE;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+  renderProducts();
+});
+document.getElementById('load-more-btn').addEventListener('click', () => {
+  visibleCount += PAGE_SIZE;
   renderProducts();
 });
 window.addEventListener('resize', updateHeaderHeight);
@@ -1168,6 +1194,7 @@ async function init(){
     console.warn('Could not load products from Supabase.', e);
     PRODUCTS = [];
   }
+  renderFilters();
   renderProducts();
 
   try{
