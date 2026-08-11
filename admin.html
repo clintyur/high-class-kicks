@@ -109,6 +109,38 @@
   .log-sale-form select{ flex:2; min-width:160px; }
   .log-sale-form input[type="number"]{ flex:1; min-width:100px; }
 
+  /* ---------- ORDERS ---------- */
+  .orders-filter{ display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .orders-filter-btn.active{ background:var(--black); color:var(--white); }
+  .order-card{ border:3px solid var(--black); margin-bottom:1.25rem; background:var(--white); }
+  .order-card.is-shipped{ opacity:0.6; }
+  .order-card-head{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;
+    padding:1rem 1.25rem; border-bottom:3px solid var(--black); background:var(--off-white);
+    flex-wrap:wrap;
+  }
+  .order-product{ font-size:0.95rem; text-transform:uppercase; letter-spacing:0.03em; }
+  .order-meta{ color:var(--muted); font-size:0.75rem; margin-top:0.25rem; }
+  .order-amount{ font-size:1.1rem; white-space:nowrap; }
+  .order-body{ display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; padding:1.25rem; }
+  .order-address{ font-size:0.9rem; line-height:1.7; white-space:pre-line; }
+  .order-contact{ font-size:0.85rem; line-height:1.8; word-break:break-word; }
+  .order-contact a{ text-decoration:underline; }
+  .order-missing{
+    color:#a33; font-size:0.85rem; line-height:1.6;
+    border:2px dashed #a33; padding:0.75rem; background:#fdf3f3;
+  }
+  .order-actions{ display:flex; gap:0.5rem; padding:0 1.25rem 1.25rem; flex-wrap:wrap; }
+  .order-actions .btn{ font-size:0.72rem; padding:0.5rem 0.9rem; }
+  .order-shipped-tag{
+    display:inline-block; background:var(--black); color:var(--white);
+    padding:0.2rem 0.6rem; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em;
+    margin-left:0.5rem;
+  }
+  @media (max-width:700px){
+    .order-body{ grid-template-columns:1fr; gap:1rem; }
+  }
+
   /* ---------- PRODUCTS ---------- */
   #products-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:1.5rem; }
   .admin-product-card{ border:3px solid var(--black); background:var(--white); }
@@ -277,6 +309,7 @@
     <nav id="admin-mobile-menu-links">
       <button class="sidebar-link active" data-view="dashboard">Dashboard</button>
       <button class="sidebar-link" data-view="products">Products</button>
+      <button class="sidebar-link" data-view="orders">Orders</button>
       <button class="sidebar-link" data-view="stripe">Stripe</button>
       <button class="sidebar-link" data-view="settings">Settings</button>
     </nav>
@@ -292,6 +325,7 @@
     <nav id="sidebar-nav">
       <button class="sidebar-link active" data-view="dashboard"><span class="link-text">Dashboard</span></button>
       <button class="sidebar-link" data-view="products"><span class="link-text">Products</span></button>
+      <button class="sidebar-link" data-view="orders"><span class="link-text">Orders</span></button>
       <button class="sidebar-link" data-view="stripe"><span class="link-text">Stripe</span></button>
       <button class="sidebar-link" data-view="settings"><span class="link-text">Settings</span></button>
     </nav>
@@ -368,6 +402,38 @@
         <button class="btn btn-dark" id="add-product-btn">+ Add Product</button>
       </div>
       <div id="products-grid"></div>
+    </section>
+
+    <!-- ORDERS -->
+    <section class="view" id="view-orders">
+      <div class="view-header">
+        <h2>Orders</h2>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <button class="btn" id="orders-refresh-btn">Refresh</button>
+          <button class="btn btn-dark" id="orders-csv-btn">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="label">To Ship</div><div class="metric-value" id="orders-unshipped">0</div></div>
+        <div class="metric-card"><div class="label">Shipped</div><div class="metric-value" id="orders-shipped">0</div></div>
+        <div class="metric-card"><div class="label">Total Orders</div><div class="metric-value" id="orders-total">0</div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Shipping Queue</h3>
+        <p class="footer-note" style="margin-top:0;">
+          Every Stripe sale with the buyer's address. Use <strong>Copy Address</strong> to paste
+          straight into a carrier's label form, or <strong>Export CSV</strong> to bulk-import into
+          Pirate Ship. Mark orders shipped as they go out.
+        </p>
+        <div class="orders-filter">
+          <button class="btn orders-filter-btn active" data-filter="unshipped">To Ship</button>
+          <button class="btn orders-filter-btn" data-filter="shipped">Shipped</button>
+          <button class="btn orders-filter-btn" data-filter="all">All</button>
+        </div>
+        <div id="orders-list"></div>
+      </div>
     </section>
 
     <!-- STRIPE -->
@@ -876,6 +942,7 @@ async function loadEverything(){
   await loadProducts();
   renderDashboard();
   renderProducts();
+  loadOrders();
   populateSettingsForm();
   populateStripeForm();
 }
@@ -1017,6 +1084,207 @@ function renderTopProducts(log){
     <div class="list-row"><span>${escapeHtml(name)} (${data.count} sold)</span><span>${currency(data.total)}</span></div>
   `).join('');
 }
+
+/* ================= ORDERS / SHIPPING ================= */
+let ORDERS = [];
+let ordersFilter = 'unshipped';
+
+async function loadOrders(){
+  const list = document.getElementById('orders-list');
+  try{
+    ORDERS = await sbGet('orders?select=*&order=created_at.desc');
+  }catch(e){
+    console.warn('Orders load failed.', e);
+    ORDERS = [];
+    list.innerHTML = '<div class="list-empty">Could not load orders</div>';
+    return;
+  }
+  renderOrders();
+}
+
+// Stripe gives country as a two-letter code; carriers want it spelled out
+// for anything that is not domestic.
+function countryName(code){
+  if(!code) return '';
+  try{
+    return new Intl.DisplayNames(['en'], { type:'region' }).of(code) || code;
+  }catch(e){
+    return code;
+  }
+}
+
+function hasAddress(o){
+  return Boolean(o.shipping_line1 && o.shipping_city);
+}
+
+// Plain-text block in the shape a carrier's label form expects.
+function formatAddress(o){
+  const lines = [
+    o.shipping_name || o.customer_name || '',
+    o.shipping_line1 || '',
+    o.shipping_line2 || '',
+    // "San Francisco, CA 94103" — state and postcode are space-separated,
+    // which is what carrier label forms and the USPS expect.
+    [o.shipping_city, [o.shipping_state, o.shipping_postal_code].filter(Boolean).join(' ')]
+      .filter(Boolean).join(', '),
+    countryName(o.shipping_country)
+  ];
+  return lines.filter(l => l && l.trim()).join('\n');
+}
+
+function renderOrders(){
+  const list = document.getElementById('orders-list');
+  const shippedCount = ORDERS.filter(o => o.shipped).length;
+  document.getElementById('orders-unshipped').textContent = ORDERS.length - shippedCount;
+  document.getElementById('orders-shipped').textContent = shippedCount;
+  document.getElementById('orders-total').textContent = ORDERS.length;
+
+  const rows = ORDERS.filter(o =>
+    ordersFilter === 'all' ? true : ordersFilter === 'shipped' ? o.shipped : !o.shipped
+  );
+
+  if(rows.length === 0){
+    list.innerHTML = `<div class="list-empty">${
+      ORDERS.length === 0 ? 'No Stripe orders yet' :
+      ordersFilter === 'shipped' ? 'Nothing shipped yet' : 'Nothing waiting to ship'
+    }</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map(o => {
+    const addr = hasAddress(o)
+      ? `<div class="order-address">${escapeHtml(formatAddress(o))}</div>`
+      : `<div class="order-missing">No shipping address on this order. Stripe only
+           collects one when the Payment Link has address collection switched on —
+           contact the buyer at the email below for this one.</div>`;
+    return `
+      <div class="order-card${o.shipped ? ' is-shipped' : ''}">
+        <div class="order-card-head">
+          <div>
+            <div class="order-product">${escapeHtml(o.product_name || 'Unknown product')}${
+              o.shipped ? '<span class="order-shipped-tag">Shipped</span>' : ''
+            }</div>
+            <div class="order-meta">
+              ${new Date(o.created_at).toLocaleString()}
+              ${o.shipped_at ? ` &middot; shipped ${new Date(o.shipped_at).toLocaleDateString()}` : ''}
+            </div>
+          </div>
+          <div class="order-amount">${currency(o.amount)}</div>
+        </div>
+        <div class="order-body">
+          ${addr}
+          <div class="order-contact">
+            ${o.customer_email ? `<div><a href="mailto:${escapeHtml(o.customer_email)}">${escapeHtml(o.customer_email)}</a></div>` : ''}
+            ${o.customer_phone ? `<div><a href="tel:${escapeHtml(o.customer_phone)}">${escapeHtml(o.customer_phone)}</a></div>` : ''}
+            ${!o.customer_email && !o.customer_phone ? '<div style="color:var(--muted);">No contact details</div>' : ''}
+          </div>
+        </div>
+        <div class="order-actions">
+          ${hasAddress(o) ? `<button class="btn" onclick="copyOrderAddress(${o.id}, this)">Copy Address</button>` : ''}
+          <button class="btn ${o.shipped ? '' : 'btn-dark'}" onclick="toggleOrderShipped(${o.id})">
+            ${o.shipped ? 'Mark Unshipped' : 'Mark Shipped'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function copyOrderAddress(id, btn){
+  const order = ORDERS.find(o => o.id === id);
+  if(!order) return;
+  const text = formatAddress(order);
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    // clipboard API needs a secure context; fall back for plain http
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  const original = btn.textContent;
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+async function toggleOrderShipped(id){
+  const order = ORDERS.find(o => o.id === id);
+  if(!order) return;
+  const next = !order.shipped;
+  try{
+    await sbPatch(`orders?id=eq.${id}`, {
+      shipped: next,
+      shipped_at: next ? new Date().toISOString() : null
+    });
+    order.shipped = next;
+    order.shipped_at = next ? new Date().toISOString() : null;
+    renderOrders();
+  }catch(e){
+    console.error('Could not update order.', e);
+    alert('Could not update that order. Check your connection and try again.');
+  }
+}
+
+function csvCell(value){
+  const s = value === null || value === undefined ? '' : String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Column names match what Pirate Ship's bulk importer expects, so the file
+// can be uploaded as-is. Other carriers let you map columns on import.
+function exportOrdersCsv(){
+  const rows = ORDERS.filter(o =>
+    ordersFilter === 'all' ? true : ordersFilter === 'shipped' ? o.shipped : !o.shipped
+  );
+  if(rows.length === 0){
+    alert('No orders to export in this view.');
+    return;
+  }
+  const headers = ['Name','Street1','Street2','City','State','Zip','Country',
+                   'Phone','Email','Item','Amount','Order Date','Stripe Session'];
+  const lines = [headers.join(',')];
+  rows.forEach(o => {
+    lines.push([
+      o.shipping_name || o.customer_name || '',
+      o.shipping_line1 || '',
+      o.shipping_line2 || '',
+      o.shipping_city || '',
+      o.shipping_state || '',
+      o.shipping_postal_code || '',
+      o.shipping_country || '',
+      o.customer_phone || '',
+      o.customer_email || '',
+      o.product_name || '',
+      o.amount ?? '',
+      o.created_at ? o.created_at.slice(0,10) : '',
+      o.stripe_session_id || ''
+    ].map(csvCell).join(','));
+  });
+
+  const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hck-orders-${ordersFilter}-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('orders-refresh-btn').addEventListener('click', loadOrders);
+document.getElementById('orders-csv-btn').addEventListener('click', exportOrdersCsv);
+document.querySelectorAll('.orders-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ordersFilter = btn.dataset.filter;
+    document.querySelectorAll('.orders-filter-btn')
+      .forEach(b => b.classList.toggle('active', b === btn));
+    renderOrders();
+  });
+});
 
 function populateLogSaleSelect(){
   const sel = document.getElementById('log-sale-product');

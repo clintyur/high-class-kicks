@@ -47,6 +47,26 @@ Deno.serve(async (req) => {
       console.error('Could not fetch line items:', err.message);
     }
 
+    // Shipping address. Stripe only populates `shipping_details` when the
+    // Payment Link (or Checkout Session) has shipping address collection
+    // turned on — Dashboard > the link > "Collect customers' addresses".
+    // If it is off, these are all null and the order cannot be fulfilled
+    // from the admin panel, so fall back to the billing address that card
+    // payments collect anyway. Billing is not always where they want it
+    // shipped, but it beats having nothing.
+    const shipping = session.shipping_details;
+    const billing = session.customer_details;
+    const address = shipping?.address || billing?.address || null;
+    const recipient = shipping?.name || billing?.name || null;
+
+    if (!shipping?.address) {
+      console.warn(
+        `Session ${session.id} has no shipping address; ` +
+          'enable shipping address collection on the Payment Link. ' +
+          (billing?.address ? 'Falling back to the billing address.' : 'No billing address either.')
+      );
+    }
+
     const res = await fetch(
       `${supabaseUrl}/rest/v1/orders?on_conflict=stripe_session_id`,
       {
@@ -62,7 +82,16 @@ Deno.serve(async (req) => {
           product_name: productName,
           amount: (session.amount_total || 0) / 100,
           currency: session.currency,
-          customer_email: session.customer_details?.email || null,
+          customer_email: billing?.email || null,
+          customer_name: billing?.name || null,
+          customer_phone: billing?.phone || null,
+          shipping_name: recipient,
+          shipping_line1: address?.line1 || null,
+          shipping_line2: address?.line2 || null,
+          shipping_city: address?.city || null,
+          shipping_state: address?.state || null,
+          shipping_postal_code: address?.postal_code || null,
+          shipping_country: address?.country || null,
         }),
       }
     );
