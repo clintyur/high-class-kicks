@@ -18,7 +18,7 @@
     --header-h: 0px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  html{scroll-behavior:smooth;}
+  html{scroll-behavior:smooth; -webkit-text-size-adjust:100%;}
   body{
     background:var(--white);
     color:var(--black);
@@ -475,6 +475,82 @@
   .btn-secondary{ background:var(--white); color:var(--black); }
   .btn-secondary:hover{ background:var(--black); color:var(--white); }
   .btn-primary:disabled, .btn-secondary:disabled{ opacity:0.35; cursor:not-allowed; }
+
+  /* ---------- MOBILE ----------
+     The desktop design leans on small, wide-tracked uppercase type and a
+     single tall column on phones (15 screens of scrolling for one page of
+     products). Below 860px we go two-up, tighten the desktop padding, and
+     size the small UI text back up to something readable at arm's length. */
+  @media (max-width:860px){
+    /* two-up grid: roughly half the scrolling, and the images still read */
+    #product-grid{ grid-template-columns:repeat(2, 1fr); }
+    .card-info{ padding:0.75rem 0.8rem 0.95rem; gap:0.3rem; }
+    /* long titles ran 5-6 lines in a 186px column, leaving ragged rows —
+       clamp so every card in a row is the same height */
+    .card-name{
+      font-size:0.85rem; letter-spacing:0.02em; line-height:1.3;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .card-sub{
+      font-size:0.72rem; letter-spacing:0.06em;
+      display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .card-bottom{ padding-top:0.45rem; }
+    .card-price{ font-size:0.9rem; }
+    .card-size{ font-size:0.74rem; letter-spacing:0.04em; }
+    .card-badge{ top:0.5rem; left:0.5rem; padding:0.28rem 0.55rem; font-size:0.64rem; letter-spacing:0.08em; }
+    /* quick-add sits permanently open on touch, so keep it compact */
+    .quick-add{ padding:0.7rem; font-size:0.72rem; letter-spacing:0.1em; }
+
+    /* small UI text: bigger, and less tracking — letter-spacing hurts
+       legibility more than size does once you're under ~13px */
+    #announcement span{ font-size:0.8rem; letter-spacing:0.1em; padding:0.5rem 1.5rem; }
+    .filter-btn{ font-size:0.85rem; letter-spacing:0.08em; padding:0.65rem 1.1rem; }
+    #product-count{ font-size:0.82rem; letter-spacing:0.1em; }
+    #footer-bottom{ font-size:0.78rem; letter-spacing:0.06em; }
+    #footer-grid h3, #footer-top h3{ font-size:0.85rem; letter-spacing:0.1em; }
+    #footer-grid a, #footer-grid p{ font-size:0.95rem; }
+    .label{ font-size:0.8rem; letter-spacing:0.12em; }
+
+    /* reclaim the desktop whitespace */
+    #shop-header{ padding:2.5rem 1.25rem 2rem; }
+    .filters{ margin-top:1.5rem; gap:0.6rem; }
+    .tagline{ margin-top:1.1rem; font-size:1rem; }
+    #instagram{ padding:2.75rem 1.25rem; }
+    #behold-mount{ margin-top:1.75rem; }
+    .follow-btn{ margin-top:1.75rem; }
+    #footer-top{ padding:2.5rem 1.25rem 1.75rem; }
+    #footer-top p{ font-size:0.95rem; line-height:1.65; }
+    #footer-grid{ gap:2.5rem; padding:2rem 1.25rem; }
+    #footer-bottom{ padding:1.1rem 1.25rem; }
+    #marquee span{ font-size:1rem; padding:1rem 1.5rem; letter-spacing:0.14em; }
+
+    /* full-bleed modal — the 2rem overlay padding wasted a lot of screen */
+    #product-modal-overlay{ padding:0.75rem; }
+    #modal-details{ padding:1.5rem 1.35rem 1.75rem; }
+    #modal-name{ font-size:1.35rem; }
+    #modal-sub{ font-size:0.85rem; letter-spacing:0.08em; }
+    #modal-description{ font-size:0.95rem; }
+    #modal-thumbs img{ width:58px; height:76px; }
+    .size-opt{ padding:0.6rem 1.1rem; font-size:0.9rem; }
+    /* 44px minimum tap target */
+    #modal-close{ width:44px; height:44px; }
+
+    #load-more-btn{ margin:2rem auto; padding:0.95rem 2rem; font-size:0.85rem; }
+  }
+
+  /* stacked modal only — above 760px it is still a two-column grid and a
+     fixed height would fight the 3/4 aspect ratio */
+  @media (max-width:760px){
+    #modal-image{ height:42vh; }
+  }
+
+  /* very narrow phones can't carry two columns without the text collapsing */
+  @media (max-width:359px){
+    #product-grid{ grid-template-columns:1fr; }
+  }
 </style>
 </head>
 <body>
@@ -729,7 +805,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const CATEGORY_ORDER = ['Shoes', 'Clothing', 'Pants/Jeans', 'Shirts', 'Jackets', 'Belts', 'Jewelry', 'Other'];
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 6;
 
 let SETTINGS = DEFAULT_SETTINGS;
 let PRODUCTS = [];
