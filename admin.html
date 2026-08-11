@@ -656,31 +656,46 @@ function authHeaders(extra){
     ...(extra || {})
   };
 }
+// Every authenticated call goes through here. Supabase access tokens last
+// an hour; the panel used to hold one until it went stale, at which point
+// the UI still looked logged in but every save came back 401. Now the
+// token is renewed before it lapses, and a 401 triggers one refresh-and-
+// retry before giving up and asking for the password again.
+async function sbFetch(url, options = {}, allowRetry = true){
+  await ensureFreshSession();
+  const res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  if(res.status === 401 && allowRetry && ADMIN_SESSION){
+    if(await refreshSession()) return sbFetch(url, options, false);
+    handleSessionExpired();
+  }
+  return res;
+}
+
 async function sbGet(path){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: authHeaders() });
+  const res = await sbFetch(`${SB_URL}/rest/v1/${path}`);
   if(!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 async function sbPost(path, data){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+  const res = await sbFetch(`${SB_URL}/rest/v1/${path}`, {
     method:'POST',
-    headers: authHeaders({ Prefer:'return=representation' }),
+    headers:{ Prefer:'return=representation' },
     body: JSON.stringify(data)
   });
   if(!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
   return res.json();
 }
 async function sbPatch(path, data){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+  const res = await sbFetch(`${SB_URL}/rest/v1/${path}`, {
     method:'PATCH',
-    headers: authHeaders({ Prefer:'return=representation' }),
+    headers:{ Prefer:'return=representation' },
     body: JSON.stringify(data)
   });
   if(!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
   return res.json();
 }
 async function sbDelete(path){
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method:'DELETE', headers: authHeaders() });
+  const res = await sbFetch(`${SB_URL}/rest/v1/${path}`, { method:'DELETE' });
   if(!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
   return true;
 }
@@ -715,13 +730,9 @@ function compressImage(file, maxDim = 1600, quality = 0.82){
 
 async function uploadProductImage(blob){
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const res = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`, {
+  const res = await sbFetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`, {
     method: 'POST',
-    headers: {
-      'apikey': SB_KEY,
-      'Authorization': `Bearer ${ADMIN_SESSION ? ADMIN_SESSION.access_token : SB_KEY}`,
-      'Content-Type': 'image/jpeg'
-    },
+    headers: { 'Content-Type': 'image/jpeg' },
     body: blob
   });
   if(!res.ok){
@@ -795,8 +806,81 @@ let SETTINGS = null;
 let PRODUCTS = [];
 let editingProductId = null;
 let currentImages = [];
+const SESSION_KEY = 'hck_admin_session';
 let ADMIN_SESSION = null;
-try{ ADMIN_SESSION = JSON.parse(sessionStorage.getItem('hck_admin_session')); }catch(e){ ADMIN_SESSION = null; }
+try{ ADMIN_SESSION = JSON.parse(sessionStorage.getItem(SESSION_KEY)); }catch(e){ ADMIN_SESSION = null; }
+
+/* ---------- session lifetime ----------
+   Supabase issues an access token that lapses after an hour and a refresh
+   token to trade in for a new one. Only the access token was being kept,
+   so the panel quietly stopped being able to write once the hour was up —
+   "Could not save product: POST products failed: 401". */
+
+// Normalise a Supabase token response, recording when it goes stale.
+function toSession(data){
+  const ttlSeconds = Number(data.expires_in) || 3600;
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + ttlSeconds * 1000
+  };
+}
+
+function persistSession(session){
+  ADMIN_SESSION = session;
+  if(session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else sessionStorage.removeItem(SESSION_KEY);
+}
+
+async function refreshSession(){
+  if(!ADMIN_SESSION || !ADMIN_SESSION.refresh_token) return false;
+  try{
+    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method:'POST',
+      headers:{ 'apikey': SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ refresh_token: ADMIN_SESSION.refresh_token })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.access_token) return false;
+    persistSession(toSession(data));
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+// Refresh tokens rotate on use, so two parallel refreshes would invalidate
+// each other. Share one in-flight attempt between concurrent callers.
+let refreshInFlight = null;
+async function ensureFreshSession(){
+  if(!ADMIN_SESSION) return;
+  // Sessions stored before this fix have no expires_at — treat as due.
+  const dueAt = ADMIN_SESSION.expires_at;
+  if(dueAt && Date.now() < dueAt - 120000) return;
+  if(!refreshInFlight){
+    refreshInFlight = refreshSession().finally(() => { refreshInFlight = null; });
+  }
+  await refreshInFlight;
+}
+
+// The login box doubles as the expiry notice, so its text is set per case
+// rather than being the hardcoded "Incorrect password".
+function showLoginError(message){
+  const err = document.getElementById('login-error');
+  err.textContent = message;
+  err.style.display = 'block';
+}
+
+function handleSessionExpired(){
+  persistSession(null);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  showLoginError('Session expired — please log in again');
+  throw new Error('Session expired');
+}
+
+// Keep a long-lived tab alive rather than waiting for a save to fail.
+setInterval(() => { if(ADMIN_SESSION) ensureFreshSession(); }, 5 * 60 * 1000);
 
 /* ================= UTIL ================= */
 function escapeHtml(str){
@@ -872,7 +956,7 @@ async function signIn(email, password){
   });
   const data = await res.json();
   if(!res.ok || !data.access_token) return null;
-  return { access_token: data.access_token, refresh_token: data.refresh_token };
+  return toSession(data);
 }
 document.getElementById('login-submit').addEventListener('click', attemptLogin);
 document.getElementById('login-password').addEventListener('keydown', (e) => { if(e.key === 'Enter') attemptLogin(); });
@@ -883,16 +967,15 @@ async function attemptLogin(){
   try{
     const session = await signIn(ADMIN_EMAIL, val);
     if(session){
-      ADMIN_SESSION = session;
-      sessionStorage.setItem('hck_admin_session', JSON.stringify(ADMIN_SESSION));
+      persistSession(session);
       document.getElementById('login-error').style.display = 'none';
       document.getElementById('login-password').value = '';
       showApp();
     }else{
-      document.getElementById('login-error').style.display = 'block';
+      showLoginError('Incorrect password');
     }
   }catch(e){
-    document.getElementById('login-error').style.display = 'block';
+    showLoginError('Incorrect password');
   }finally{
     btn.disabled = false;
   }
@@ -901,10 +984,10 @@ function doLogout(){
   if(ADMIN_SESSION){
     fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers: authHeaders() }).catch(() => {});
   }
-  ADMIN_SESSION = null;
-  sessionStorage.removeItem('hck_admin_session');
+  persistSession(null);
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-error').style.display = 'none';
 }
 document.getElementById('logout-btn').addEventListener('click', doLogout);
 document.getElementById('mobile-logout-btn').addEventListener('click', doLogout);
@@ -1594,8 +1677,7 @@ document.getElementById('change-password-btn').addEventListener('click', async (
       body: JSON.stringify({ password: next })
     });
     if(!res.ok) throw new Error(`Update failed: ${res.status}`);
-    ADMIN_SESSION = verified;
-    sessionStorage.setItem('hck_admin_session', JSON.stringify(ADMIN_SESSION));
+    persistSession(verified);
     document.getElementById('s-currentPassword').value = '';
     document.getElementById('s-newPassword').value = '';
     document.getElementById('s-confirmPassword').value = '';
