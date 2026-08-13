@@ -1254,12 +1254,23 @@ function openProductModal(id){
     `).join('');
   }
 
+  // Nearly every listing is a single vintage piece in one size. Making the
+  // shopper click that lone size button before Add to Bag would even
+  // respond just reads as a broken button, so pick it for them.
+  if(!soldOut && sizes.length === 1){
+    activeSize = sizes[0];
+    const only = sizeContainer.querySelector('.size-opt');
+    if(only) only.classList.add('selected');
+  }
+
   const addBtn = document.getElementById('modal-add-bag');
   const buyBtn = document.getElementById('modal-buy-now');
   const noLink = !product.stripe_link;
-  addBtn.disabled = soldOut || sizes.length > 0;
+  const needsSize = sizes.length > 0 && !activeSize;
+  addBtn.disabled = soldOut || needsSize;
   buyBtn.disabled = soldOut || noLink;
-  addBtn.textContent = soldOut ? 'Sold Out' : 'Add to Bag';
+  // Say why the button is inert instead of leaving a dead "Add to Bag".
+  addBtn.textContent = soldOut ? 'Sold Out' : (needsSize ? 'Select a Size' : 'Add to Bag');
   buyBtn.textContent = soldOut ? 'Sold Out' : (noLink ? 'Checkout Unavailable' : 'Buy Now');
 
   document.getElementById('product-modal-overlay').classList.add('open');
@@ -1292,7 +1303,10 @@ function selectSize(size){
   document.querySelectorAll('.size-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.size === size);
   });
-  document.getElementById('modal-add-bag').disabled = false;
+  const addBtn = document.getElementById('modal-add-bag');
+  addBtn.disabled = false;
+  // Clear the "Select a Size" prompt now that one is chosen.
+  addBtn.textContent = 'Add to Bag';
 }
 function closeProductModal(){
   document.getElementById('product-modal-overlay').classList.remove('open');
