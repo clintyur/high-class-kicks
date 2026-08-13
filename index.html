@@ -4,7 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>High Class Kicks — Vintage, Hypebeast &amp; Designer</title>
-<meta name="description" content="Curated vintage, hypebeast, and designer shoes &amp; clothing. Based in California. Shop the drop.">
+<meta name="description" content="Curated vintage, hype wear, designer shoes sneakers, and clothing. Based in California. Over 5000+ items sold Shop the drop. Don’t miss out">
+<link rel="canonical" href="https://highclasskicks.com/">
+
+<!-- Link previews. Instagram, iMessage and the rest never run JavaScript, so
+     they only ever see these static tags — the copies applySettings writes at
+     runtime are invisible to them. Keep both in step when editing SEO in the
+     admin, or a shared link will show stale text. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="High Class Kicks">
+<meta property="og:url" content="https://highclasskicks.com/">
+<meta property="og:title" content="High Class Kicks — Vintage, Hypebeast &amp; Designer">
+<meta property="og:description" content="Curated vintage, hype wear, designer shoes sneakers, and clothing. Based in California. Over 5000+ items sold Shop the drop. Don’t miss out">
+<meta property="og:image" content="https://highclasskicks.com/logo.jpg">
+<meta property="og:image:width" content="1080">
+<meta property="og:image:height" content="1080">
+<meta property="og:image:alt" content="High Class Kicks logo">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="High Class Kicks — Vintage, Hypebeast &amp; Designer">
+<meta name="twitter:description" content="Curated vintage, hype wear, designer shoes sneakers, and clothing. Based in California. Over 5000+ items sold Shop the drop. Don’t miss out">
+<meta name="twitter:image" content="https://highclasskicks.com/logo.jpg">
+<meta name="theme-color" content="#0a0a0a">
+
+<link rel="icon" href="logo.jpg">
+<link rel="apple-touch-icon" href="logo.jpg">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap" rel="stylesheet">
@@ -954,6 +978,17 @@ function applySettings(){
   document.title = SETTINGS.seoTitle || 'High Class Kicks';
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc) metaDesc.setAttribute('content', SETTINGS.seoDescription || '');
+  // Keep the share-preview tags aligned with the admin's SEO fields. Crawlers
+  // never see this — they read the static markup — but it stops the two
+  // drifting apart for anything that does run the page.
+  [['meta[property="og:title"]', SETTINGS.seoTitle],
+   ['meta[name="twitter:title"]', SETTINGS.seoTitle],
+   ['meta[property="og:description"]', SETTINGS.seoDescription],
+   ['meta[name="twitter:description"]', SETTINGS.seoDescription]
+  ].forEach(([sel, val]) => {
+    const el = document.querySelector(sel);
+    if(el && val) el.setAttribute('content', val);
+  });
 
   document.getElementById('nav-brand-name').textContent = SETTINGS.brandName || 'High Class Kicks';
 
