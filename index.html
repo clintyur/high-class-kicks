@@ -1182,6 +1182,50 @@ function startGateWatch(){
   }, 20000);
 }
 
+/* Pieces sell while people are still scrolling. The grid is only built once
+   at page load, so without this a shopper can sit on a stale page and click
+   Buy Now on something that went twenty minutes ago, landing on a retired
+   Stripe link. Re-check quietly and let sold pieces fall out of the grid.
+
+   Deliberately conservative: never rearranges the page while a modal or the
+   cart is open, while the gate is up, or while the tab is in the background,
+   and only re-renders when the set of buyable pieces has actually changed. */
+let stockWatchInterval = null;
+function startStockWatch(){
+  if(stockWatchInterval) return;
+  stockWatchInterval = setInterval(async () => {
+    if(document.hidden) return;
+    if(document.getElementById('coming-soon').classList.contains('show')) return;
+    if(document.getElementById('product-modal-overlay').classList.contains('open')) return;
+    if(document.getElementById('cart-drawer').classList.contains('open')) return;
+    if(document.getElementById('mobile-menu').classList.contains('open')) return;
+
+    let fresh;
+    try{
+      fresh = await sbGet('products?select=*&order=sort_order.asc');
+    }catch(e){
+      return; // offline or rate-limited; try again next tick
+    }
+    if(!Array.isArray(fresh) || fresh.length === 0) return;
+
+    const before = PRODUCTS.filter(isForSale).map(p => p.id).join(',');
+    const after = fresh.filter(isForSale).map(p => p.id).join(',');
+    PRODUCTS = fresh;
+    if(before === after) return;
+
+    // If the category being viewed just sold out entirely, fall back to All
+    // rather than leaving the shopper staring at an empty grid.
+    if(activeFilter !== 'All' && !fresh.some(p => p.category === activeFilter && isForSale(p))){
+      activeFilter = 'All';
+      visibleCount = Math.max(visibleCount, PAGE_SIZE);
+    }
+    const scrollY = window.scrollY;
+    renderFilters();
+    renderProducts();
+    window.scrollTo(0, scrollY);
+  }, 60000);
+}
+
 document.getElementById('coming-soon-signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const input = document.getElementById('coming-soon-phone');
@@ -1216,7 +1260,9 @@ document.getElementById('coming-soon-password-submit').addEventListener('click',
 
 /* ================= RENDER: FILTERS ================= */
 function renderFilters(){
-  const present = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.category === cat));
+  // Only offer a category while something in it is still buyable, so the last
+  // sale in a category takes its filter away instead of leaving a dead tab.
+  const present = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.category === cat && isForSale(p)));
   const filtersEl = document.getElementById('filters');
   filtersEl.innerHTML = ['All', ...present].map(cat => `
     <button class="filter-btn${cat === activeFilter ? ' active' : ''}" data-filter="${escapeHtml(cat)}">${escapeHtml(cat)}</button>
@@ -1224,11 +1270,20 @@ function renderFilters(){
 }
 
 /* ================= RENDER: PRODUCTS ================= */
+// Sold pieces leave the storefront entirely rather than sitting there greyed
+// out. Each listing is one item, its Payment Link retires itself on sale, and
+// the webhook flips sold_out — so a sold card is only ever a dead end for the
+// shopper. They stay in the database and in the admin, just not on the shop.
+function isForSale(p){
+  return !p.sold_out && p.badge !== 'Sold Out';
+}
+
 function renderProducts(){
   const grid = document.getElementById('product-grid');
   const empty = document.getElementById('product-empty');
   const loadMoreBtn = document.getElementById('load-more-btn');
-  const filtered = activeFilter === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === activeFilter);
+  const forSale = PRODUCTS.filter(isForSale);
+  const filtered = activeFilter === 'All' ? forSale : forSale.filter(p => p.category === activeFilter);
   const visible = filtered.slice(0, visibleCount);
 
   document.getElementById('product-count').textContent = filtered.length === 0
@@ -1431,6 +1486,7 @@ async function init(){
   }
   renderFilters();
   renderProducts();
+  startStockWatch();
 
   try{
     await sbPost('visits', {});
