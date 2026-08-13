@@ -23,6 +23,8 @@ Usage:
     export STRIPE_SECRET_KEY=sk_live_...      # your key, never stored here
     python3 scripts/prepare-payment-links.py            # dry run
     python3 scripts/prepare-payment-links.py --apply    # make changes
+    python3 scripts/prepare-payment-links.py --audit    # find sold items
+                                                        # still listed as available
 
 The key is read from the environment and only ever sent to api.stripe.com.
 """
@@ -151,6 +153,34 @@ def main():
     if not key.startswith(("sk_", "rk_")):
         print(f"Note: key starts '{key.split('_')[0]}_' ({len(key)} chars), which is not a "
               "prefix this script knows. Letting Stripe decide.\n")
+
+    # --audit: which listings point at a link Stripe has already retired?
+    # A capped link deactivates itself once it sells, so any product still
+    # marked available while its link is dead has a Buy Now button that
+    # goes nowhere.
+    if "--audit" in sys.argv:
+        by_link = load_products()
+        links = all_payment_links(key)
+        dead = {l["url"].strip(): l for l in links if not l.get("active") and l.get("url")}
+        stranded = []
+        for url, products in by_link.items():
+            if url in dead:
+                for p in products:
+                    stranded.append(p)
+        live_but_dead = [p for p in stranded if not p.get("sold_out")]
+        print(f"{len(links)} payment links, {len(dead)} deactivated by Stripe\n")
+        if not stranded:
+            print("No product points at a retired link. Nothing to do.")
+            return
+        print(f"{len(stranded)} product(s) on a retired link "
+              f"({len(live_but_dead)} still showing as available):\n")
+        for p in stranded:
+            state = "NEEDS SOLD OUT" if not p.get("sold_out") else "already sold out"
+            print(f"  [{state}] id {p['id']}  {p['name'][:52]}")
+        if live_but_dead:
+            print("\nMark these sold out in the admin, or their Buy Now button "
+                  "sends shoppers to a dead Stripe page.")
+        return
 
     apply_changes = "--apply" in sys.argv
     # Don't claim TEST for a key whose format we don't recognise — saying

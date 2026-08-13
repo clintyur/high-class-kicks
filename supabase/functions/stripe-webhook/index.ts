@@ -101,6 +101,52 @@ Deno.serve(async (req) => {
       console.error('Failed to insert order:', text);
       return new Response('Failed to record order', { status: 500 });
     }
+
+    // Each listing is a single vintage piece and its Payment Link is capped
+    // at one completed sale, so Stripe deactivates the link the moment it
+    // sells. Without this the product stays on the storefront looking
+    // available and the next shopper's Buy Now lands on a dead Stripe page.
+    // Mark it sold out so the card says so instead.
+    //
+    // Deliberately after the order insert and never fatal: the sale is
+    // already recorded, and failing to grey out a card is not worth
+    // returning an error to Stripe and triggering a retry.
+    try {
+      const linkId = typeof session.payment_link === 'string'
+        ? session.payment_link
+        : session.payment_link?.id;
+
+      if (!linkId) {
+        console.log(`Session ${session.id} has no payment link; nothing to mark sold out.`);
+      } else {
+        const link = await stripe.paymentLinks.retrieve(linkId);
+        if (link?.url) {
+          const markRes = await fetch(
+            `${supabaseUrl}/rest/v1/products?stripe_link=eq.${encodeURIComponent(link.url)}`,
+            {
+              method: 'PATCH',
+              headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=representation',
+              },
+              body: JSON.stringify({ sold_out: true }),
+            }
+          );
+          const updated = markRes.ok ? await markRes.json() : null;
+          if (!markRes.ok) {
+            console.error('Could not mark product sold out:', await markRes.text());
+          } else if (!updated?.length) {
+            console.warn(`No product matches ${link.url} — nothing marked sold out.`);
+          } else {
+            console.log(`Marked product ${updated[0].id} sold out after sale.`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Sold-out update failed (order was still recorded):', err.message);
+    }
   }
 
   return new Response(JSON.stringify({ received: true }), {
