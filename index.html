@@ -1002,9 +1002,50 @@ let comingSoonInterval = null;
 function hasPreviewAccess(){
   return sessionStorage.getItem('hck_preview_access') === 'true';
 }
+/* The reopen time is saved by a datetime-local input as a bare wall clock
+   ("2026-08-13T13:00") with no timezone. new Date() reads that as the
+   *visitor's* local time, so a New York shopper and a Los Angeles shopper
+   counted down to moments three hours apart and only people in the shop's
+   own timezone saw the truth. Pin it to the shop's clock instead. */
+const STORE_TIMEZONE = 'America/Los_Angeles';
+
+// How far the given instant's wall clock in `timeZone` sits from UTC.
+function zoneOffsetMs(utcMs, timeZone){
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone, hour12: false,
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    }).formatToParts(new Date(utcMs)).map(p => [p.type, p.value])
+  );
+  const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day,
+                         +parts.hour % 24, +parts.minute, +parts.second);
+  return asUtc - utcMs;
+}
+
+// Absolute epoch ms for the configured reopen time, or null if unset.
+function reopenTargetMs(){
+  const raw = SETTINGS.reopenDateTime;
+  if(!raw) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(raw);
+  if(!m) return Number.isNaN(new Date(raw).getTime()) ? null : new Date(raw).getTime();
+  try{
+    const [, y, mo, d, hh, mm] = m.map(Number);
+    const guess = Date.UTC(y, mo - 1, d, hh, mm);
+    // Two passes so a target sitting right on a DST switch still lands right.
+    const first = guess - zoneOffsetMs(guess, STORE_TIMEZONE);
+    return guess - zoneOffsetMs(first, STORE_TIMEZONE);
+  }catch(e){
+    return new Date(raw).getTime();
+  }
+}
+
 function renderComingSoon(){
   const overlay = document.getElementById('coming-soon');
-  const shouldShow = SETTINGS.siteOpen === false && !hasPreviewAccess();
+  const target = reopenTargetMs();
+  // Open on schedule rather than waiting for someone to flip the switch.
+  const countdownFinished = target !== null && Date.now() >= target;
+  const shouldShow = SETTINGS.siteOpen === false && !countdownFinished && !hasPreviewAccess();
 
   if(!shouldShow){
     overlay.classList.remove('show');
@@ -1023,13 +1064,19 @@ function renderComingSoon(){
   overlay.classList.add('show');
   document.body.style.overflow = 'hidden';
 
-  const target = SETTINGS.reopenDateTime ? new Date(SETTINGS.reopenDateTime).getTime() : null;
   function tick(){
     if(!target){
       ['cd-days','cd-hours','cd-mins','cd-secs'].forEach(id => document.getElementById(id).textContent = '00');
       return;
     }
-    const diff = Math.max(0, target - Date.now());
+    const diff = target - Date.now();
+    if(diff <= 0){
+      // Opening time reached — drop the gate for whoever is sitting here.
+      clearInterval(comingSoonInterval);
+      comingSoonInterval = null;
+      renderComingSoon();
+      return;
+    }
     const days = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
@@ -1042,6 +1089,33 @@ function renderComingSoon(){
   tick();
   if(comingSoonInterval) clearInterval(comingSoonInterval);
   comingSoonInterval = setInterval(tick, 1000);
+  startGateWatch();
+}
+
+/* Settings are read once at page load, so someone parked on the countdown
+   would sit behind the gate indefinitely after the store was opened by
+   hand — exactly the people most keen to buy. Re-check periodically while
+   the gate is up and let them straight in. */
+let gateWatchInterval = null;
+function startGateWatch(){
+  if(gateWatchInterval) return;
+  gateWatchInterval = setInterval(async () => {
+    try{
+      const rows = await sbGet('settings?id=eq.1&select=data');
+      if(rows && rows[0] && rows[0].data){
+        SETTINGS = { ...DEFAULT_SETTINGS, ...rows[0].data };
+      }
+    }catch(e){
+      return; // offline or rate-limited; the next tick tries again
+    }
+    if(SETTINGS.siteOpen !== false){
+      clearInterval(gateWatchInterval);
+      gateWatchInterval = null;
+      applySettings();
+      renderFilters();
+      renderProducts();
+    }
+  }, 20000);
 }
 
 document.getElementById('coming-soon-signup-form').addEventListener('submit', async (e) => {
