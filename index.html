@@ -820,9 +820,19 @@ function sizedImage(url, width, quality){
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     + `?width=${width}&quality=${quality}`;
 }
+/* Embedding a value as a JS string inside an HTML attribute needs two
+   passes in the right order: JSON.stringify produces a valid JS literal,
+   then escapeHtml protects the quotes from the HTML parser. Escaping only
+   for HTML is not enough — the parser turns &#39; back into an apostrophe
+   before the JS is compiled, so a value like "Men's" would break out of
+   the string and throw. */
+function jsAttr(value){
+  return escapeHtml(JSON.stringify(value === undefined ? null : value));
+}
+
 // Inline fallback for a resized <img> — restores the original on failure.
 function imageFallback(originalUrl){
-  return `onerror="this.onerror=null; this.src='${escapeHtml(originalUrl).replace(/'/g, "\\'")}'"`;
+  return `onerror="this.onerror=null; this.src=${jsAttr(originalUrl)}"`;
 }
 const PAGE_SIZE = 6;
 
@@ -903,7 +913,7 @@ function renderCart(){
             </div>
             <span>$${(item.price * item.qty).toFixed(2)}</span>
           </div>
-          ${multiProduct ? `<button class="cart-item-checkout" onclick="checkoutLink('${escapeHtml(item.stripe_link || '').replace(/'/g, "\\'")}')" ${!item.stripe_link ? 'disabled' : ''}>Checkout This Item</button>` : ''}
+          ${multiProduct ? `<button class="cart-item-checkout" onclick="checkoutLink(${jsAttr(item.stripe_link || '')})" ${!item.stripe_link ? 'disabled' : ''}>Checkout This Item</button>` : ''}
           <button class="cart-remove" onclick="removeFromCart(${idx})">Remove</button>
         </div>
       </div>
@@ -1250,7 +1260,7 @@ function openProductModal(id){
   }else{
     document.getElementById('modal-sizes').style.display = 'block';
     sizeContainer.innerHTML = sizes.map(s => `
-      <button class="size-opt" data-size="${escapeHtml(s)}" onclick="selectSize('${escapeHtml(s).replace(/'/g,"\\'")}')" ${soldOut ? 'disabled' : ''}>${escapeHtml(s)}</button>
+      <button class="size-opt" data-size="${escapeHtml(s)}" onclick="selectSize(${jsAttr(s)})" ${soldOut ? 'disabled' : ''}>${escapeHtml(s)}</button>
     `).join('');
   }
 
