@@ -805,6 +805,25 @@ const DEFAULT_SETTINGS = {
 };
 
 const CATEGORY_ORDER = ['Shoes', 'Clothing', 'Pants/Jeans', 'Shirts', 'Jackets', 'Belts', 'Jewelry', 'Other'];
+
+/* Photos are stored straight off the phone at ~650KB each. A card renders
+   them 186px wide on a phone, so a shopper was downloading roughly six
+   times more than the screen could ever show — about 3.8MB just to see
+   the first page on cellular. Supabase can resize on the fly; ask it for
+   something closer to the display size.
+
+   If the transform endpoint ever refuses (plan change, rate limit), the
+   <img> onerror hook swaps back to the untouched original, so the worst
+   case is the slow image we would have served anyway. */
+function sizedImage(url, width, quality){
+  if(!url || url.indexOf('/storage/v1/object/public/') === -1) return url;
+  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    + `?width=${width}&quality=${quality}`;
+}
+// Inline fallback for a resized <img> — restores the original on failure.
+function imageFallback(originalUrl){
+  return `onerror="this.onerror=null; this.src='${escapeHtml(originalUrl).replace(/'/g, "\\'")}'"`;
+}
 const PAGE_SIZE = 6;
 
 let SETTINGS = DEFAULT_SETTINGS;
@@ -872,7 +891,7 @@ function renderCart(){
 
     itemsEl.innerHTML = cart.map((item, idx) => `
       <div class="cart-item">
-        <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">
+        <img src="${escapeHtml(sizedImage(item.image, 150, 70))}" alt="${escapeHtml(item.name)}" ${imageFallback(item.image)}>
         <div class="cart-item-info">
           <div class="cart-item-name">${escapeHtml(item.name)}</div>
           <div class="cart-item-meta">Size ${escapeHtml(item.size || 'N/A')}</div>
@@ -1187,7 +1206,7 @@ function renderProducts(){
     <div class="product-card" data-id="${p.id}">
       <div class="card-media" onclick="openProductModal(${p.id})">
         ${p.badge ? `<span class="${badgeClass}">${escapeHtml(p.badge)}</span>` : ''}
-        <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" loading="lazy">
+        <img src="${escapeHtml(sizedImage(p.image, 600, 75))}" alt="${escapeHtml(p.name)}" loading="lazy" ${imageFallback(p.image)}>
         <button class="quick-add" onclick="event.stopPropagation(); openProductModal(${p.id})" ${soldOut ? 'disabled' : ''}>
           ${soldOut ? 'Sold Out' : 'Quick Add'}
         </button>
@@ -1215,7 +1234,7 @@ function openProductModal(id){
   const soldOut = product.sold_out || product.badge === 'Sold Out';
 
   const galleryImages = (product.images && product.images.length) ? product.images : (product.image ? [product.image] : []);
-  document.getElementById('modal-image-img').src = galleryImages[0] || '';
+  showModalImage(galleryImages[0] || '');
   document.getElementById('modal-image-img').alt = product.name;
   renderModalThumbs(galleryImages, product.name);
   document.getElementById('modal-badge').textContent = product.badge || '';
@@ -1252,14 +1271,21 @@ function renderModalThumbs(images, name){
     return;
   }
   el.innerHTML = images.map((url, i) => `
-    <img src="${escapeHtml(url)}" alt="${escapeHtml(name)} photo ${i + 1}" class="${i === 0 ? 'active' : ''}" onclick="setModalImage(${i}, this)">
+    <img src="${escapeHtml(sizedImage(url, 150, 70))}" alt="${escapeHtml(name)} photo ${i + 1}" class="${i === 0 ? 'active' : ''}" onclick="setModalImage(${i}, this)" ${imageFallback(url)}>
   `).join('');
+}
+// Single place that swaps the main modal photo, so the resize and its
+// fallback are applied however the image gets changed.
+function showModalImage(url){
+  const img = document.getElementById('modal-image-img');
+  img.onerror = () => { img.onerror = null; img.src = url; };
+  img.src = sizedImage(url, 1000, 80);
 }
 function setModalImage(index, thumbEl){
   const galleryImages = (activeProduct.images && activeProduct.images.length) ? activeProduct.images : (activeProduct.image ? [activeProduct.image] : []);
-  document.getElementById('modal-image-img').src = galleryImages[index];
+  showModalImage(galleryImages[index]);
   document.querySelectorAll('#modal-thumbs img').forEach(img => img.classList.remove('active'));
-  thumbEl.classList.add('active');
+  if(thumbEl) thumbEl.classList.add('active');
 }
 function selectSize(size){
   activeSize = size;
