@@ -153,8 +153,10 @@ def main():
               "prefix this script knows. Letting Stripe decide.\n")
 
     apply_changes = "--apply" in sys.argv
-    print(f"[{'APPLY' if apply_changes else 'DRY RUN'}] "
-          f"{'LIVE' if key.startswith('sk_live_') else 'TEST'} mode, "
+    # Don't claim TEST for a key whose format we don't recognise — saying
+    # "test" before a run against live payment links is worse than unsure.
+    mode = "LIVE" if "_live_" in key else "TEST" if "_test_" in key else "UNKNOWN"
+    print(f"[{'APPLY' if apply_changes else 'DRY RUN'}] {mode} mode, "
           f"shipping to {', '.join(ALLOWED_COUNTRIES)}\n")
 
     by_link = load_products()
