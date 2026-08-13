@@ -145,8 +145,18 @@ def main():
             "STRIPE_SECRET_KEY is not set.\n"
             "Run:  export STRIPE_SECRET_KEY=sk_live_...   then re-run this script."
         )
-    if not key.startswith("sk_"):
-        raise SystemExit("That does not look like a Stripe secret key (expected sk_...).")
+    # Accept a restricted key too — sharing one scoped to Payment Links is a
+    # lot safer than handing over the account's full secret key.
+    if not key.startswith(("sk_", "rk_")):
+        raise SystemExit(
+            f"That is not a Stripe API key (got {len(key)} characters starting "
+            f"'{key[:4]}').\n"
+            "Expected either:\n"
+            "  sk_live_...  full secret key   (Dashboard > Developers > API keys)\n"
+            "  rk_live_...  restricted key    (same page, 'Create restricted key')\n"
+            "Both run roughly 100+ characters. A short value means only part of "
+            "the key was copied."
+        )
 
     apply_changes = "--apply" in sys.argv
     print(f"[{'APPLY' if apply_changes else 'DRY RUN'}] "
