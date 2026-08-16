@@ -298,6 +298,11 @@
     z-index:2;
   }
   .card-badge.sold-out{ background:var(--muted); }
+  /* Sold pieces stay on the shop as proof things move, but should read as
+     unavailable at a glance rather than competing with what is still buyable. */
+  .product-card.is-sold-out .card-media img{ filter:grayscale(1); opacity:0.45; }
+  .product-card.is-sold-out .card-info{ opacity:0.55; }
+  .product-card.is-sold-out .quick-add{ background:var(--muted); cursor:not-allowed; }
   .quick-add{
     position:absolute; left:0; right:0; bottom:0;
     background:var(--black); color:var(--white);
@@ -1208,17 +1213,14 @@ function startStockWatch(){
     }
     if(!Array.isArray(fresh) || fresh.length === 0) return;
 
-    const before = PRODUCTS.filter(isForSale).map(p => p.id).join(',');
-    const after = fresh.filter(isForSale).map(p => p.id).join(',');
+    // Track sold state per item, not just which items exist — a piece selling
+    // changes how its card reads without adding or removing anything.
+    const signature = list => list.map(p => `${p.id}:${isForSale(p) ? 1 : 0}`).join(',');
+    const before = signature(PRODUCTS);
+    const after = signature(fresh);
     PRODUCTS = fresh;
     if(before === after) return;
 
-    // If the category being viewed just sold out entirely, fall back to All
-    // rather than leaving the shopper staring at an empty grid.
-    if(activeFilter !== 'All' && !fresh.some(p => p.category === activeFilter && isForSale(p))){
-      activeFilter = 'All';
-      visibleCount = Math.max(visibleCount, PAGE_SIZE);
-    }
     const scrollY = window.scrollY;
     renderFilters();
     renderProducts();
@@ -1260,9 +1262,7 @@ document.getElementById('coming-soon-password-submit').addEventListener('click',
 
 /* ================= RENDER: FILTERS ================= */
 function renderFilters(){
-  // Only offer a category while something in it is still buyable, so the last
-  // sale in a category takes its filter away instead of leaving a dead tab.
-  const present = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.category === cat && isForSale(p)));
+  const present = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.category === cat));
   const filtersEl = document.getElementById('filters');
   filtersEl.innerHTML = ['All', ...present].map(cat => `
     <button class="filter-btn${cat === activeFilter ? ' active' : ''}" data-filter="${escapeHtml(cat)}">${escapeHtml(cat)}</button>
@@ -1270,10 +1270,10 @@ function renderFilters(){
 }
 
 /* ================= RENDER: PRODUCTS ================= */
-// Sold pieces leave the storefront entirely rather than sitting there greyed
-// out. Each listing is one item, its Payment Link retires itself on sale, and
-// the webhook flips sold_out — so a sold card is only ever a dead end for the
-// shopper. They stay in the database and in the admin, just not on the shop.
+// Sold pieces stay on the shop wearing a Sold Out badge rather than vanishing
+// — a wall of sold items is proof things move, and it puts pressure on what
+// is left. Their buttons are dead either way, so nobody can reach the retired
+// Payment Link behind them.
 function isForSale(p){
   return !p.sold_out && p.badge !== 'Sold Out';
 }
@@ -1282,8 +1282,7 @@ function renderProducts(){
   const grid = document.getElementById('product-grid');
   const empty = document.getElementById('product-empty');
   const loadMoreBtn = document.getElementById('load-more-btn');
-  const forSale = PRODUCTS.filter(isForSale);
-  const filtered = activeFilter === 'All' ? forSale : forSale.filter(p => p.category === activeFilter);
+  const filtered = activeFilter === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === activeFilter);
   const visible = filtered.slice(0, visibleCount);
 
   document.getElementById('product-count').textContent = filtered.length === 0
@@ -1303,9 +1302,11 @@ function renderProducts(){
     const soldOut = p.sold_out || p.badge === 'Sold Out';
     const badgeClass = soldOut ? 'card-badge sold-out' : 'card-badge';
     return `
-    <div class="product-card" data-id="${p.id}">
+    <div class="product-card${soldOut ? ' is-sold-out' : ''}" data-id="${p.id}">
       <div class="card-media" onclick="openProductModal(${p.id})">
-        ${p.badge ? `<span class="${badgeClass}">${escapeHtml(p.badge)}</span>` : ''}
+        ${soldOut
+            ? '<span class="card-badge sold-out">Sold Out</span>'
+            : (p.badge ? `<span class="${badgeClass}">${escapeHtml(p.badge)}</span>` : '')}
         <img src="${escapeHtml(sizedImage(p.image, 600, 75))}" alt="${escapeHtml(p.name)}" loading="lazy" ${imageFallback(p.image)}>
         <button class="quick-add" onclick="event.stopPropagation(); openProductModal(${p.id})" ${soldOut ? 'disabled' : ''}>
           ${soldOut ? 'Sold Out' : 'Quick Add'}
